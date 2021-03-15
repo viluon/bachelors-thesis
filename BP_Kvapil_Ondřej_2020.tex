@@ -12,7 +12,7 @@
 
 \documentclass[thesis=B,english]{FITthesis}[2019/12/23]
 
-%\usepackage[utf8]{inputenc} % LaTeX source encoded as UTF-8
+\usepackage[utf8]{inputenc} % LaTeX source encoded as UTF-8
 % \usepackage[latin2]{inputenc} % LaTeX source encoded as ISO-8859-2
 % \usepackage[cp1250]{inputenc} % LaTeX source encoded as Windows-1250
 
@@ -38,7 +38,7 @@
 \author{Ondřej Kvapil} %author's name without academic degrees
 \authorWithDegrees{Ondřej Kvapil} %author's name with academic degrees
 \supervisor{Ing. Filip Křikava, Ph.D.}
-\acknowledgements{THANKS (remove entirely in case you do not with to thank anyone)}
+\acknowledgements{THANKS (remove entirely in case you do not wish to thank anyone)}
 \abstractEN{Summarize the contents and contribution of your work in a few sentences in English language.}
 \abstractCS{V n{\v e}kolika v{\v e}t{\' a}ch shr{\v n}te obsah a p{\v r}{\' i}nos t{\' e}to pr{\' a}ce v {\v c}esk{\' e}m jazyce.}
 \placeForDeclarationOfAuthenticity{Prague}
@@ -60,6 +60,88 @@ foo
 
 \setsecnumdepth{all}
 \chapter{State-of-the-art}
+Although there are many practical functional languages in the ML family (F\#,
+OCaml, SML), Haskell is the only non-strict language among them. Its most
+popular compiler, the Glasgow Haskell Compiler (GHC), implements Haskell's
+non-strict features by lazy evaluation facilitated mainly by a runtime data
+structure called a \textit{thunk}, which represents delayed computations.
+
+Although necessary for non-strictness as required by the Haskell spec [link],
+laziness leads to many issues with runtime behaviour of Haskell programs.  The
+accumulation of thunks at runtime is a frequent cause of pathological memory
+behaviour and unpredictable performance. There is a number of libraries and
+tools which aim to help the Haskell programmer inspect the runtime state of the
+Haskell heap, force the evaluation of thunks known to be forced by the program
+at a later point anyway, and avoid their creation altogether for certain
+expressions.
+
+Among the surveyed approaches to the inspection and management of thunks were
+the following:
+\begin{itemize}
+	\item Hoed
+	\item \texttt{nothunks}
+	\item hat
+	\item htrace
+	\item \texttt{ghc-heap-view}
+\end{itemize}
+
+% TODO add newcommands for declarations, types, modules, and code
+\section{Hoed}
+Hoed\cite{gh-hoed} is a tracer and a debugger for Haskell. Unlike the built-in
+debugger of GHCi, Hoed is implemented as a regular Haskell library. Users of
+Hoed manually annotate functions of interest to make the tracer capture
+relevant information during execution. The annotations are simply calls to the
+provided debugging function \texttt{observe} with a signature similar to that
+of the \texttt{trace} function from the \texttt{Debug.Trace} module of
+Haskell's standard library, hiding unsafe IO. \texttt{observe} has type
+\texttt{Observable a => Text -> a -> a}, its \texttt{Text} argument has to
+equal the name of the function being annotated. The \texttt{Observable}
+constraint on \texttt{a} is used by Hoed internally, the typeclass has a
+default implementation. The resulting trace of the debugging session is exposed
+via a web-based interface, to which the users connect with a regular web
+browser.  Hoed's traces include information about which functions have been
+called during the execution of the annotated program and what were their
+arguments. It only collects information about annotated functions.
+
+Hoed features several tools to help users analyse problems with their code and
+find the culprits of test failures. One of these is \textit{algorithmic
+debugging}, an interactive trace browser which uses an algorithm similar to
+binary search to locate the deepest incorrect function in the recorded call
+tree. It does so by asking the user questions about whether certain evaluations
+were correct, working its way gradually deeper into the tree. The ``algorithmic
+debugger'' ultimately reports the faults it located.
+
+While Hoed's approach to debugging is certainly interesting and quite far
+removed from the concept of debuggers in other languages, it lacks any kind of
+awareness of the low-level details of non-strictness. This is perhaps due to
+the fact that it was implemented at a time when it was generally believed that
+competing implementations of Haskell will emerge. % TODO source
+Hoed is thus intended for use with property testers, such as QuickCheck, % TODO link!
+rather than to identify and resolve language implementation -dependent issues,
+such as memory leaks.
+
+\section{\texttt{nothunks}}
+\section{hat}
+\section{htrace}
+\section{\texttt{ghc-heap-view}}
+
+to-do:
+\begin{itemize}
+	\item explain trade-offs with those that need code changes (typeclass-based)
+	\item explain problems with approaches independent of GHC
+		(\texttt{haskell-src-exts} lacks feature parity with GHC)
+\end{itemize}
+
+Despite Haskell users' considerable interest in avoiding the implicit delaying
+of computations which the language is notorious for, there are no records of a
+large-scale study of the use of laziness in practice akin to
+\cite{emp-study-laziness-r}. The tool with a feature set closest to what is
+necessary for a comprehensive analysis of the practical use of laziness is
+likely \texttt{ghc-heap-view}, which allows the user to interactively inspect
+the heap objects and look inside thunks. However, although it does provide a
+library interface, \texttt{ghc-heap-view} is aimed at interactive use within
+GHCi. It does not implement a tracing mode, which would facilitate collection
+of laziness-relevant information during the execution of entire programs.
 
 \chapter{Analysis and design}
 
@@ -69,8 +151,9 @@ foo
 \chapter{Conclusion}
 
 
-\bibliographystyle{iso690}
-\bibliography{mybibliographyfile}
+\bibliography{bbl}
+% TODO get ISO 690 working
+\bibliographystyle{plain}
 
 \setsecnumdepth{all}
 \appendix
