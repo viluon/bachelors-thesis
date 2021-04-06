@@ -1,0 +1,19 @@
+name: Compile LaTeX
+on: [push]
+jobs:
+  build_latex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: compile
+        uses: xu-cheng/latex-action@v2
+        with:
+          root_file: BP_Kvapil_Ondřej_2020.tex
+          latexmk_use_xelatex: true
+          latexmk_shell_escape: true
+      - name: upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: thesis PDF
+          path: BP_Kvapil_Ondřej_2020.pdf
