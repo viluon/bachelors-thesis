@@ -68,6 +68,14 @@
 
 % \newacronym{CVUT}{{\v C}VUT}{{\v C}esk{\' e} vysok{\' e} u{\v c}en{\' i} technick{\' e} v Praze}
 % \newacronym{FIT}{FIT}{Fakulta informa{\v c}n{\' i}ch technologi{\' i}}
+\newacronym{ghc}{GHC}{Glasgow Haskell Compiler}
+\newacronym{ghci}{GHCi}{\acrshort{GHC} interpreter}
+\newacronym{hpc}{HPC}{Haskell Program Coverage}
+% TODO this should probs go into a glossary instead?
+\newacronym{stg}{STG}{Spineless Tag\-less G-machine, an abstract machine
+based on graph reduction\cite{stg-classic}. \acrshort{ghc} compiles the Core
+language to STG instructions, machine code is generated from the
+STG representation.}
 
 \setsecnumdepth{part}
 \chapter{Introduction}
@@ -78,10 +86,9 @@
 \chapter{State-of-the-art}
 Although there are many practical functional languages in the ML family (F\#,
 OCaml, SML), Haskell is the only non-strict language among them. Its most
-popular compiler\citationNeeded, the Glasgow Haskell Compiler (GHC), implements
-Haskell's non-strict features by lazy evaluation facilitated mainly by a
-runtime data structure called a \textit{thunk}, which represents delayed
-computations.
+popular compiler\citationNeeded, the \acrfull{ghc}, implements Haskell's
+non-strict features by lazy evaluation facilitated mainly by a runtime data
+structure called a \textit{thunk}, which represents delayed computations.
 
 \todo{rewrite the following (repetitive use of ``although'', laziness is only
 an implementation technique)}
@@ -110,12 +117,12 @@ the following:
 
 \subsection{Hoed}
 Hoed\cite{gh-hoed} is a tracer and a debugger for Haskell. Unlike the built-in
-debugger of GHCi, Hoed is implemented as a regular Haskell library. Users of
-Hoed manually annotate functions of interest to make the tracer capture
-relevant information during execution. The annotations are simply calls to the
-provided debugging function \hsIdent{observe} with a signature similar to that
-of the \hsIdent{trace} function from the \hsModule{Debug.Trace} module of
-Haskell's standard library, hiding unsafe IO. \hsIdent{observe} has type
+debugger of \acrshort{ghci}, Hoed is implemented as a regular Haskell library.
+Users of Hoed manually annotate functions of interest to make the tracer
+capture relevant information during execution. The annotations are simply calls
+to the provided debugging function \hsIdent{observe} with a signature similar
+to that of the \hsIdent{trace} function from the \hsModule{Debug.Trace} module
+of Haskell's standard library, hiding unsafe IO. \hsIdent{observe} has type
 \hsSignature{Observable a => Text -> a -> a}, its \hsType{Text} argument has to
 equal the name of the function being annotated. The \hsType{Observable}
 constraint on \hsType{a} is used by Hoed internally, the typeclass has a
@@ -195,9 +202,10 @@ compilers,
 
 
 The Glasgow Haskell Compiler is the most widely used Haskell compiler
-\citationNeeded with many language extensions beyond Haskell 2010. In 2009, GHC
-became the official compiler of the Haskell Platform\cite{haskell-platform},
-further cementing its monopoly as the primary implementation of the language.
+\citationNeeded with many language extensions beyond Haskell 2010. In 2009,
+\acrshort{ghc} became the official compiler of the Haskell
+Platform\cite{haskell-platform}, further cementing its monopoly as the primary
+implementation of the language.
 
 Hat uses the \hackage{haskell-src-exts} package to parse the source language.
 
@@ -221,7 +229,7 @@ the program's operation.
 \subsection{\hackage{ghc-heap-view}}
 \hackage{ghc-heap-view} is a Haskell package which makes advanced introspection
 of the Haskell heap a possibility from within pure Haskell code. It relies on
-the \hackage{ghc-heap} library which comes bundled with GHC.
+the \hackage{ghc-heap} library which comes bundled with \acrshort{ghc}.
 
 The library's notable high-level features include a function which attempts to
 recreate readable Haskell source code from a runtime value, using \hsCode{let}
@@ -232,7 +240,7 @@ complete with their info tables.
 \todo{To-do}:
 \begin{itemize}
 	\item explain trade-offs with those that need code changes (typeclass-based)
-	\item explain problems with approaches independent of GHC
+	\item explain problems with approaches independent of \acrshort{ghc}
 \end{itemize}
 
 Despite Haskell users' considerable interest in avoiding the implicit delaying
@@ -241,25 +249,50 @@ large-scale study of the use of laziness in practice akin to
 \cite{emp-study-laziness-r}. The tool with a feature set closest to what is
 necessary for a comprehensive analysis of the practical use of laziness is
 likely \hackage{ghc-heap-view}, which allows the user to interactively inspect
-the heap objects and look inside thunks using GHCi. However, the package
-primarily provides a rich library interface. It does not implement a tracing
-mode, which would facilitate collection of laziness-relevant information during
-the execution of entire programs.
+the heap objects and look inside thunks using \acrshort{ghci}. However, the
+package primarily provides a rich library interface. It does not implement a
+tracing mode, which would facilitate collection of laziness-relevant
+information during the execution of entire programs.
 
 \section{Existing profilers}
 \blind[1]
 
 \subsection{Haskell Program Coverage}
-\blind[2]
+Haskell Program Coverage\cite{hpc-paper} is (unsurprisingly) a code coverage
+tool for Haskell. Similarly to Hat, \acrshort{hpc} has a source-to-source mode
+of operation but additionally offers tight integration with \acrshort{ghc} and
+comes bundled with modern releases of the compiler. It supports all
+\acrshort{ghc} language extensions.
+
+\acrshort{hpc} allows easy instrumentation of arbitrarily complex Haskell
+programs without source annotations. It wraps subexpressions in the program
+with an unsafe side-effecting function which records its evaluation by mutating
+a module-wide array of integer counters. The final state of the per-module
+arrays forms the \acrshort{hpc} trace. This architecture is wired into the
+\acrshort{ghc} compiler pipeline in all the major data structures (the surface
+syntax, Core language, and \acrshort{stg}), which makes it both robust and
+per\-for\-mant. The tool comes bundled with utilities for displaying the
+original source code with colourful mark-up, highlighting interesting
+subexpressions based on the information extracted from the trace. Notably,
+\acrshort{hpc} supports traces of the boolean values of pattern guards, which
+are added to the visualisation.
+
+\acrshort{hpc}'s feature set can be of tremendous help to the Haskell
+programmer, especially when combined with tools like
+QuickCheck\cite{quickcheck-paper}. However, its traces are tuned specifically
+for code coverage and do not contain enough information to be useful for any
+kind of dynamic strictness analysis. While the \acrshort{hpc} traces are
+sufficiently granular, the subexpression counters lack necessary information
+about their execution context and timing.
 
 
 \section{The Glasgow Haskell Compiler}
-\todo{Explain that several previous approaches had direct influence on the
-compiler. GHC now has HPC-specific features, compiler plugins, which
+\todo{Explain that several previous approaches had a direct influence on the
+compiler. \acrshort{ghc} now has \acrshort{hpc}-specific features, compiler plugins, which
 supersede source-to-source transformations (strengthening the monopoly but
-simplifying implementation and streamlining the process), and a codebase
-that's increasingly amenable to various extensions via the trees that grow
-pattern, \hsIdent{Tickish}, etc.}
+simplifying implementation and streamlining the process), and a codebase that's
+increasingly amenable to various extensions via the trees that grow pattern,
+\hsIdent{Tickish}, etc.}
 \blind[1]
 
 \subsection{Compiler plugins}
@@ -267,12 +300,42 @@ pattern, \hsIdent{Tickish}, etc.}
 
 
 \chapter{Analysis and design}
+\todo{what is analysis?}
+\blind[1]
+
+Taking inspiration from \cite{emp-study-laziness-r}, the original
+implementation plan was to work with \acrshort{ghci}. The bytecode compiler and
+interpreter lack support for certain \acrshort{ghc} language extensions, namely
+un\-box\-ed tuples and sums, but the supported subset of the language was
+considered large enough to contain interesting examples. The relative
+simplicity of the bytecode compilation pipeline and the fairly straightforward
+evaluator were considered to provide a foundation amenable to low-level tweaks
+deemed necessary for the extraction of crucial tracing information.
+
+\blind[1]
+
+The \acrshort{ghc} codebase is a large and complicated collection of source
+files written in a number of programming languages, primarily Haskell and C.
+The ever-evolving project is supported by a custom build system called
+Hadrian\citationNeeded, itself written in Haskell, which bootstraps the
+self-hosting compiler in several steps. To build \acrshort{ghc}, an appropriate
+version of \acrshort{ghc} has to be installed already. The installed compiler
+is referred to as the \textbf{stage 0} compiler \todo{fix the formatting of
+stages}. Hadrian uses the \textbf{stage 0} compiler to build the \textbf{stage
+1} compiler, which is a freshly built \acrshort{ghc} linked against the
+\textbf{stage 0} \hackage{base} library. The \textbf{stage 1} compiler is
+subsequently used to build the core libraries. It is then utilised again to
+build the \textbf{stage 2} compiler, which is linked against the freshly built
+\hackage{base}. The \textbf{stage 2} compiler constitutes a complete build of
+\acrshort{ghc} from source code. There is an optional follow-up step, where the
+\textbf{stage 2} compiler builds a \textbf{stage 3} compiler, which is useful
+for profiling \acrshort{ghc} while building \acrshort{ghc}.
+
 
 \blind[3]
 
 
 \chapter{Realisation}
-
 \blind[3]
 
 
@@ -289,11 +352,9 @@ pattern, \hsIdent{Tickish}, etc.}
 \appendix
 
 \chapter{Acronyms}
-% \printglossaries
-\begin{description}
-	\item[GHC] The (Glorious) Glasgow Haskell Compiler
-	\item[GHCi] The GHC interpreter, a read/eval/print interface to the bytecode compiler of GHC
-\end{description}
+
+\todo{fix acronym glossary}
+\printglossary[type=\acronymtype]
 
 
 \chapter{Contents of enclosed CD}
