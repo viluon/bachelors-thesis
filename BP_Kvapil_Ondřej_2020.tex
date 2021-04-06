@@ -27,9 +27,9 @@
 % \iflanguage{czech}{\renewcommand*{\acronymname}{Seznam pou{\v z}it{\' y}ch zkratek}}{}
 % \makeglossaries
 
-% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
+% % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % EDIT THIS
-% % % % % % % % % % % % % % % % % % % % % % % % % % % % % % 
+% % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 
 \department{Programming Research Laboratory}
 \title{Haskell Dynamic Tracing}
@@ -159,13 +159,6 @@ debugging, filtering utilities which show all arguments passed to top-level
 functions, virtual stack traces, and even an interactive tool for locating
 errors in a program, similar to one of the features of Hoed.
 
-\begin{itemize}
-	\item uhhh what is our analysis of Hat
-	\item cool but has to deal with source-to-source which is a nuisance?
-	\item compatibility with non-GHC compilers is not an important goal in
-		today's Haskell climate?
-\end{itemize}
-
 % TODO so initially it was developed for the nhc compiler, gaining Haskell 98
 % features and GHC support later on. The history of haskell paper
 % https://dl.acm.org/doi/pdf/10.1145/1238844.1238856 has more info on this in
@@ -175,9 +168,8 @@ errors in a program, similar to one of the features of Hoed.
 The architectural decisions of Hat reflect the environment it originated in,
 which unfortunately differs substantially from the current status quo. Its
 source-to-source model of operation makes it compatible with various Haskell
-compilers, 
+compilers,
 
-oops what now % TODO
 
 The Glasgow Haskell Compiler is the most widely used Haskell
 compiler
@@ -188,7 +180,7 @@ cementing its monopoly as the primary implementation of the language.
 
 Hat uses the \texttt{haskell-src-exts} package to parse the source language.
 
-% TODO \texttt{haskell-src-exts} lacks feature parity with GHC
+% TODO \texttt{haskell-src-exts} DOES NOT lack feature parity with GHC
 % TODO oblivious to laziness, implementation-agnostic
 
 \section{htrace}
