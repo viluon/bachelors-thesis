@@ -38,10 +38,10 @@
 \newcommand{\hsCode}[1]{\texttt{#1}}
 
 
-% % list of acronyms
-% \usepackage[acronym,nonumberlist,toc,numberedsection=autolabel]{glossaries}
-% \iflanguage{czech}{\renewcommand*{\acronymname}{Seznam pou{\v z}it{\' y}ch zkratek}}{}
-% \makeglossaries
+% list of acronyms
+\usepackage[acronym,nonumberlist,toc,numberedsection=autolabel]{glossaries}
+\iflanguage{czech}{\renewcommand*{\acronymname}{Seznam pou{\v z}it{\' y}ch zkratek}}{}
+\makeglossaries
 
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % EDIT THIS
@@ -71,7 +71,7 @@
 
 \setsecnumdepth{part}
 \chapter{Introduction}
-foo
+\blind[3]
 
 
 \setsecnumdepth{all}
@@ -105,8 +105,10 @@ the following:
 	\item \hackage{ghc-heap-view}
 \end{itemize}
 
+\section{Existing solutions for thunk management}
+\blind[1]
 
-\section{Hoed}
+\subsection{Hoed}
 Hoed\cite{gh-hoed} is a tracer and a debugger for Haskell. Unlike the built-in
 debugger of GHCi, Hoed is implemented as a regular Haskell library. Users of
 Hoed manually annotate functions of interest to make the tracer capture
@@ -141,7 +143,7 @@ as a tool for the identification and resolution of language implementation
 -dependent issues, such as memory leaks.
 
 
-\section{\hackage{nothunks}}
+\subsection{\hackage{nothunks}}
 \hackage{nothunks} is a recently released Haskell package which helps in writing
 thunk-free code. It defines a new typeclass, \hsTC{NoThunks}, along with
 instances for common Haskell types. Any type with a \hsTC{NoThunks} instance
@@ -166,7 +168,7 @@ automatically.
 % TODO do look into the mechanism by which nothunks actually checks for thunks,
 %      however
 
-\section{Hat}
+\subsection{Hat}
 The Haskell Tracer Hat\cite{proj-hat} is a source-level tracer. It works by
 compiling Haskell source files to annotated -- but still textual -- Haskell
 source files. After this source-to-source translation, the user compiles the
@@ -202,7 +204,7 @@ Hat uses the \hackage{haskell-src-exts} package to parse the source language.
 % TODO \texttt{haskell-src-exts} DOES NOT lack feature parity with GHC
 % TODO oblivious to laziness, implementation-agnostic
 
-\section{\hackage{htrace}}
+\subsection{\hackage{htrace}}
 \hackage{htrace} \citationNeeded is a simple package which exports a single
 function: \hsSignature{htrace :: String -> a -> a}. As the name and function
 signature suggest, this function mirrors the behaviour of the standard
@@ -216,7 +218,7 @@ approach is still useful for debugging purposes. The indented tracing messages
 suggest the depth to which various thunks are evaluated at different points of
 the program's operation.
 
-\section{\hackage{ghc-heap-view}}
+\subsection{\hackage{ghc-heap-view}}
 \hackage{ghc-heap-view} is a Haskell package which makes advanced introspection
 of the Haskell heap a possibility from within pure Haskell code. It relies on
 the \hackage{ghc-heap} library which comes bundled with GHC.
@@ -244,20 +246,40 @@ primarily provides a rich library interface. It does not implement a tracing
 mode, which would facilitate collection of laziness-relevant information during
 the execution of entire programs.
 
+\section{Existing profilers}
+\blind[1]
+
+\subsection{Haskell Program Coverage}
+\blind[2]
+
+
+\section{The Glasgow Haskell Compiler}
+\todo{Explain that several previous approaches had direct influence on the
+compiler. GHC now has HPC-specific features, compiler plugins, which
+supersede source-to-source transformations (strengthening the monopoly but
+simplifying implementation and streamlining the process), and a codebase
+that's increasingly amenable to various extensions via the trees that grow
+pattern, \hsIdent{Tickish}, etc.}
+\blind[1]
+
+\subsection{Compiler plugins}
+\blind[1]
+
+
 \chapter{Analysis and design}
 
-\blind[1]
+\blind[3]
 
 
 \chapter{Realisation}
 
-\blind[1]
+\blind[3]
 
 
 \setsecnumdepth{part}
 \chapter{Conclusion}
 
-\blind[1]
+\blind[2]
 
 \bibliography{bbl}
 % TODO get ISO 690 working
@@ -269,13 +291,14 @@ the execution of entire programs.
 \chapter{Acronyms}
 % \printglossaries
 \begin{description}
-	\item[GUI] Graphical user interface
-	\item[XML] Extensible markup language
+	\item[GHC] The (Glorious) Glasgow Haskell Compiler
+	\item[GHCi] The GHC interpreter, a read/eval/print interface to the bytecode compiler of GHC
 \end{description}
 
 
 \chapter{Contents of enclosed CD}
 
+\todo{figure out what to do about this}
 %change appropriately
 
 \begin{figure}
