@@ -72,10 +72,16 @@
 \newacronym{ghci}{GHCi}{\acrshort{GHC} interpreter}
 \newacronym{hpc}{HPC}{Haskell Program Coverage}
 % TODO this should probs go into a glossary instead?
-\newacronym{stg}{STG}{Spineless Tag\-less G-machine, an abstract machine
-based on graph reduction\cite{stg-classic}. \acrshort{ghc} compiles the Core
-language to STG instructions, machine code is generated from the
-STG representation.}
+\newacronym{stg}{STG}{Spineless Tag\-less G-machine, an abstract machine based
+on graph reduction\cite{stg-classic}. \acrshort{ghc} compiles the Core language
+to STG instructions, machine code is generated from the STG representation.}
+% TODO this as well (the acronyms should only list the unabbreviated form, not
+% a description of what these are)
+\newacronym{gnu}{GNU}{GNU's Not Unix, a Unix-like operating system}
+\newacronym{hls}{HLS}{Haskell Language Server}
+% TODO citation?
+\newacronym{lsp}{LSP}{Language Server Protocol}
+
 
 \setsecnumdepth{part}
 \chapter{Introduction}
@@ -93,14 +99,14 @@ structure called a \textit{thunk}, which represents delayed computations.
 \todo{rewrite the following (repetitive use of ``although'', laziness is only
 an implementation technique)}
 
-Although necessary for non-strictness as required by the Haskell spec [link],
-laziness leads to many issues with runtime behaviour of Haskell programs.  The
-accumulation of thunks at runtime is a frequent cause of pathological memory
-behaviour and unpredictable performance. There is a number of libraries and
-tools which aim to help the Haskell programmer inspect the runtime state of the
-Haskell heap, force the evaluation of thunks known to be forced by the program
-at a later point anyway, and avoid their creation altogether for certain
-expressions.
+Although necessary for non-strictness as required by the Haskell
+spec\citationNeeded, laziness leads to many issues with runtime behaviour of
+Haskell programs. The accumulation of thunks at runtime is a frequent cause of
+pathological memory behaviour and unpredictable performance. There is a number
+of libraries and tools which aim to help the Haskell programmer inspect the
+runtime state of the Haskell heap, force the evaluation of thunks known to be
+forced by the program at a later point anyway, and avoid their creation
+altogether for certain expressions.
 
 Among the surveyed approaches to the inspection and management of thunks were
 the following:
@@ -315,22 +321,49 @@ deemed necessary for the extraction of crucial tracing information.
 \blind[1]
 
 The \acrshort{ghc} codebase is a large and complicated collection of source
-files written in a number of programming languages, primarily Haskell and C.
-The ever-evolving project is supported by a custom build system called
-Hadrian\citationNeeded, itself written in Haskell, which bootstraps the
-self-hosting compiler in several steps. To build \acrshort{ghc}, an appropriate
-version of \acrshort{ghc} has to be installed already. The installed compiler
-is referred to as the \textbf{stage 0} compiler \todo{fix the formatting of
-stages}. Hadrian uses the \textbf{stage 0} compiler to build the \textbf{stage
-1} compiler, which is a freshly built \acrshort{ghc} linked against the
-\textbf{stage 0} \hackage{base} library. The \textbf{stage 1} compiler is
-subsequently used to build the core libraries. It is then utilised again to
-build the \textbf{stage 2} compiler, which is linked against the freshly built
-\hackage{base}. The \textbf{stage 2} compiler constitutes a complete build of
-\acrshort{ghc} from source code. There is an optional follow-up step, where the
-\textbf{stage 2} compiler builds a \textbf{stage 3} compiler, which is useful
-for profiling \acrshort{ghc} while building \acrshort{ghc}.
+files written in a number of programming languages, primarily Haskell and
+C\cite{arch-ghc}. The ever-evolving project is supported by a custom build
+system called Hadrian\citationNeeded, itself written in Haskell, which
+bootstraps the self-hosting compiler in several steps. To build \acrshort{ghc},
+an appropriate version of \acrshort{ghc} has to be installed already. The
+installed compiler is referred to as the \textbf{stage 0} compiler \todo{fix
+the formatting of stages}. Hadrian uses the \textbf{stage 0} compiler to build
+first the Hadrian build system and with it the \textbf{stage 1} compiler, which
+is a freshly built \acrshort{ghc} linked against the \textbf{stage 0}
+\hackage{base} library. The \textbf{stage 1} compiler is subsequently used to
+build the core libraries. It is then utilised again to build the \textbf{stage
+2} compiler, which is linked against the freshly built \hackage{base}. The
+\textbf{stage 2} compiler constitutes a complete build of \acrshort{ghc} from
+source code. There is an optional follow-up step, where the \textbf{stage 2}
+compiler builds a \textbf{stage 3} compiler, which is useful for profiling
+\acrshort{ghc} while building \acrshort{ghc}.
 
+The first step to working on the project after obtaining the source code is
+setting up the build system. Since specific releases of \acrshort{ghc} require
+specific \textbf{stage 0} compilers as the project quickly adapts to use new
+language extensions, the management of \acrshort{ghc} versions on a Unix-like
+system with a system-wide package manager can be difficult. To ease the
+management of installed versions and enable quick switching between them, the
+\texttt{ghcup} tool\cite{ghcup} has been developed. \todo{this will need some
+more citations} \texttt{ghcup} lets the \acrshort{ghc} developer quickly
+install and switch between the releases of not only \acrshort{ghc} itself, but
+also Cabal, the Haskell build system and dependency manager, and the
+\acrfull{hls}, an \acrshort{lsp}-compliant language server providing
+Haskell-specific editor integration features.
+
+There are several ways to build \acrshort{ghc}, as the compiler previously used
+a build system based on \acrshort{gnu} Make (before switching to Hadrian) and
+the old Make build system is still being phased out. Additionally, the build
+tool of the programmer's choice can be combined with a Docker or Nix -assisted
+set-up, simplifying the installation of other dependencies required for the
+build process.
+
+\todo{how do we say ``let's not pick Make tho?''}
+\todo{ways and flavours!}
+After the initial build, the \textbf{stage 1} compiler can be \textit{frozen}
+by passing a flag to the build system on subsequent invocations. This prevents
+rebuilding the \textbf{stage 1} compiler every time a source file change, which
+speeds up the edit-compile-run cycle tremendously.
 
 \blind[3]
 
