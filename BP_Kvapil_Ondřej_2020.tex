@@ -82,8 +82,10 @@ to STG instructions, machine code is generated from the STG representation.}
 % a description of what these are)
 \newacronym{gnu}{GNU}{GNU's Not Unix, a Unix-like operating system}
 \newacronym{hls}{HLS}{Haskell Language Server}
+\newacronym{bco}{BCO}{Byte Code Object}
 % TODO citation?
 \newacronym{lsp}{LSP}{Language Server Protocol}
+\newacronym{tso}{TSO}{Thread State Object}
 \newacronym{whnf}{WHNF}{Weak Head Normal Form}
 
 
@@ -361,7 +363,7 @@ functions.
 
 \subsection{The \acrshort{ghci} approach}
 Taking inspiration from \cite{emp-study-laziness-r}, the original
-implementation plan was to work with \acrshort{ghci}. The bytecode compiler and
+implementation plan was to work with \acrfull{ghci}. The bytecode compiler and
 interpreter lack support for certain \acrshort{ghc} language extensions, namely
 un\-box\-ed tuples and sums, but the supported subset of the language was
 considered large enough to contain interesting examples\todo{maybe
@@ -375,14 +377,98 @@ features. \acrshort{ghci} already implements breakpoints, which pause the
 execution of a Haskell program running in a separate thread and pass messages
 to the controlling Haskell thread.
 
-\todo{should have a custom section, I suppose}
-The \acrfull{ghci} is an interactive interface built on \acrshort{ghc}'s
-bytecode compilation pipeline and the bytecode interpreter of the
-\acrshort{rts}. \acrshort{ghci} offers a read-eval-print loop popular in other
-programming languages. A notable feature of the tool is the \acrshort{ghci}
-debugger, which allows the programmer to place breakpoints on certain
-expressions in their code. The interpreter then pauses execution when it is
-about to evaluate an expression marked by a breakpoint.
+\subsubsection{\acrshort{ghci}: a primer}
+\acrshort{ghci} is an interactive interface built on \acrshort{ghc}'s bytecode
+compilation pipeline and the bytecode interpreter of the \acrshort{rts}.
+\acrshort{ghci} offers a read-eval-print loop popular in other programming
+languages.
+
+\acrshort{ghci} consists of several key components: the \acrshort{ghci} UI, the
+\acrshort{ghci} debugger, the bytecode generator, and the bytecode interpreter.
+The former two are a part of the front end of \acrshort{ghc}, while the
+bytecode-centric parts fit into the back end of the compiler pipeline and the
+\acrshort{rts}, respectively.
+
+The following sections will introduce each of the building blocks from which
+\acrshort{ghci} is composed, starting with an overview of how they fit
+together.
+
+\subsubsection{The life of an interpreted expression}
+The Haskell programmer invokes \acrshort{ghci} either via its dedicated
+executable or by passing the \texttt{--interactive} command-line flag to
+\acrshort{ghc}. The user's expression entered at the prompt is fed through a
+modified \acrshort{ghc} pipeline, as \acrshort{ghci} expects Haskell
+expressions, not top-level definitions. This modified pipeline culminates in
+bytecode generation, producing a collection of bytecode objects together with
+high-level information about breakpoints, pointers to allocated string
+literals, and other data.
+
+The bytecode objects form, together with other information, a compiled
+module\todo{is this correct? don't modules exist right after renaming?}.
+That module is loaded by the compiler instance and \todo{uhhh...}
+
+When evaluating an expression, the UI forks a new thread to perform evaluation
+independently of the interface. This ensures that exceptions raised during
+evaluation of an expression don't crash \acrshort{ghci}. The UI forwards
+exception handlers appropriately to ensure this is the case. The two threads
+communicate via \textit{mutable variables}, or \hsType{MVar}s. These are
+concurrency primitives from the \hsModule{Control.Concurrent.MVar} module which
+effectively implement a concurrent, mutable
+\hsType{Maybe}\cite{concurrent-haskell}. A mutable variable of type
+\hsType{MVar a} contains either no values or a single value of type \hsType{a}.
+It can be safely shared across threads and supports operations
+\hsIdent{takeMVar} and \hsIdent{putMVar}. The former operation extracts the
+value stored in an \hsType{MVar}, leaving the variable empty if a value is
+present. If the variable is empty, the operation blocks. The converse\todo{is
+this the right word?} operation \hsIdent{putMVar} blocks on a full variable and
+fills it with a value as soon as it is empty.
+
+Two \hsType{MVar}s play an important role in the design of \acrshort{ghci},
+\hsIdent{statusMVar} and \hsIdent{breakMVar}. These variables form a
+communication channel between the UI thread and the thread responsible for the
+evaluation of an expression.
+
+\todo{either reuse for the UI section or get rid of this}
+They are greeted with the interpreter's UI\todo{is it necessary
+to include this in the acronyms?} and can begin writing Haskell expressions
+directly or first invoking various \acrshort{ghci} commands to load modules,
+print types, kinds, and documentation, browse the contents of modules and
+perform other tasks. 
+
+\subsubsection{Bytecode generation}
+The bytecode facilities of \acrshort{ghc} involve a detour from the typical
+sequence of steps performed to transform Haskell sources all the way to a form
+suitable for linking or execution. After desugaring, the program is transformed
+directly into bytecode instructions\footnote{Note that this approach will soon
+be replaced by a new bytecode pipeline which follows the usual compilation
+process all the way to \acrshort{stg}\citationNeeded.}. Optimisations
+implemented in the simplifier are not performed. \acrshort{ghci} is intended
+for interactive evaluation and favours fast, iterative development over runtime
+performance, making the naive code generation approach a reasonable choice.
+
+Every top-level definition, every scrutinee of a \hsCode{case} expression, and
+every right-hand side of a non-trivial \hsCode{let} expression are compiled to
+a \acrfull{bco}. Such an object contains an array of bytecode instructions
+together with \todo{finish this}
+
+The bytecode format comprises 67 instructions
+\todo{describe the instructions in a table}
+\todo{stack/heap checks prevent (uh, or maybe react to?) respective overflows}
+
+\subsubsection{The bytecode interpreter}
+The interpreter which \acrshort{ghci} relies on is a part of the
+\acrshort{rts}. Its primary workhorse is the \texttt{interpretBCO} function
+which handles closure evaluation, unboxed returns, function application, and
+interpretation of bytecode instructions. For tasks it is unable to deal with,
+such as application of machine-code functions, it returns to the scheduler.
+
+Interpretation works simply by case analysis on the current instruction.
+
+\subsubsection{The debugger}
+A notable feature of the tool is the \acrshort{ghci} debugger, which allows the
+programmer to place breakpoints on certain expressions in their code. The
+interpreter then pauses execution when it is about to evaluate an expression
+marked by a breakpoint.
 
 Due to laziness, the order in which breakpoints are hit depends on the order in
 which their respective thunks are forced to \acrshort{whnf}, not directly on
@@ -390,14 +476,27 @@ the order in which functions are called. Breakpoints thus equip the Haskell
 programmer with a powerful tool for debugging order of evaluation issues caused
 by the language's non-strict semantics.
 
-\todo{should we describe the bytecode format?}
+Internally, breakpoints rely on a special bytecode instruction called
+\texttt{BRK\_FUN}. Upon encountering this instruction, the interpreter first
+checks whether it is already returning from a breakpoint (via a flag in the
+\acrshort{tso}). If it is not returning from a breakpoint and the associated
+breakpoint is enabled, the interpreter pauses execution at this point.
 
-Internally, breakpoints rely on a special bytecode instruction.
+Pausing on a breakpoint is quite an involved action. The interpreter prepares
+to call an ``IO action,'' which is a Haskell function invoked to resume
+\acrshort{ghci}'s UI thread by filling the shared mutable variable. This
+preparation saves the top stack frame to a new closure, a pointer to which is
+passed to the IO action. The stack is then set up to call the IO action, and
+the interpreter returns to the scheduler in order to perform the call.
 
-While its command-line interface is a separate module, the
-support for various \acrshort{ghc} features intended predominantly for the 
+At no point is the instruction pointer persisted -- the progress of evaluation
+of the current \acrshort{bco} is lost whenever the interpreter stops at a
+breakpoint. This is acceptable, as the bytecode generator makes sure to only
+put \texttt{BRK\_FUN} instructions at the very start of bytecode objects and
+the \acrshort{tso} flag ensures that a just-visited breakpoint is not stopped
+at again.
 
-
+\subsubsection{The user interface}
 \blind[1]
 
 \chapter{Realisation}
