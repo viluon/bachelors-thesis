@@ -413,8 +413,8 @@ evaluation of an expression don't crash \acrshort{ghci}. The UI forwards
 exception handlers appropriately to ensure this is the case. The two threads
 communicate via \textit{mutable variables}, or \hsType{MVar}s. These are
 concurrency primitives from the \hsModule{Control.Concurrent.MVar} module which
-effectively implement a concurrent, mutable
-\hsType{Maybe}\cite{concurrent-haskell}. A mutable variable of type
+effectively implement concurrent, mutable
+\hsType{Maybe}s\cite{concurrent-haskell}. A mutable variable of type
 \hsType{MVar a} contains either no values or a single value of type \hsType{a}.
 It can be safely shared across threads and supports operations
 \hsIdent{takeMVar} and \hsIdent{putMVar}. The former operation extracts the
@@ -497,13 +497,52 @@ the \acrshort{tso} flag ensures that a just-visited breakpoint is not stopped
 at again.
 
 \subsubsection{The user interface}
-\blind[1]
+\ldots
+
+\subsection{The compiler plugin approach}
+The second approach to dynamic tracing, which we\todo{?} eventually settled on,
+involves a relatively recently introduced feature of \acrshort{ghc}: source
+plugins\cite{ghc-source-plugins}. Compiler source plugins are Haskell packages
+which invoke the \acrshort{ghc} API\todo{same as UI, I suppose?} to hook into
+the compiler pipeline and modify the compiled program at various stages of the
+front-end. Unlike Core plugins, which operate on the internal language, source
+plugins deal with the entirety of Haskell's surface syntax.
+
+To produce useful tracing output, a dynamic tracing framework must capture
+interesting events during a program's evaluation and relate them to one
+another. In particular, the evaluation of function arguments must be clearly
+related to the respective function call to enable reasoning about the
+strictness of a function on a case-by-case basis. While retaining the order of
+evaluation is trivial in a call-by-value language, laziness introduces
+interleaving. This can only be dealt with by the introduction of state into the
+program (or into the tracing framework) in order to recover the dependencies
+between function calls and argument evaluations, which are no longer implicit
+in the order of the trace events.
+
+It is this function-call-specific state that becomes difficult to express
+without high-level information about the program structure at hand, as was the
+case with the previous approach.
+
+\subsubsection{Rewriting argument references}
+Fortunately, function-call-specific state can be easily introduced into the
+source program, simply as local variables. It suffices to keep a unique
+identifier of the particular function call that the argument evaluation traces
+can refer to. Such a unique identifier necessarily needs to change with every
+function call. In clean Haskell code without unsafe features, this is
+impossible in general, as the language requires the use of the \hsType{IO}
+monad in order to perform side-effecting computations.
+
+to-dos:
+\begin{itemize}
+	\item describe the general idea of the source plugin
+	\item explain the use of SYB
+\end{itemize}
 
 \chapter{Realisation}
-\blind[1]
+\ldots
 
 \section{Development environment}
-\blind[1]
+\ldots
 
 \section{Building \acrshort{ghc}}
 
