@@ -23,6 +23,10 @@
 \usepackage{dirtree} %directory tree visualisation
 \usepackage{xcolor}
 \usepackage{blindtext}
+\usepackage{footnote}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{booktabs}
 
 
 % custom commands
@@ -36,6 +40,9 @@
 \newcommand{\hsModule}[1]{\texttt{#1}}
 \newcommand{\hsTC}[1]{\texttt{#1}}
 \newcommand{\hsCode}[1]{\texttt{#1}}
+
+% tabularx customisation
+\newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
 
 
 % list of acronyms
@@ -73,6 +80,7 @@
 % correctly?
 \newacronym{ghci}{GHCi}{\acrshort{ghc} interpreter}
 \newacronym{rts}{RTS}{\acrshort{ghc} RunTime System}
+\newacronym{repl}{REPL}{Read-Eval-Print Loop}
 \newacronym{hpc}{HPC}{Haskell Program Coverage}
 % TODO this should probs go into a glossary instead?
 \newacronym{stg}{STG}{Spineless Tag\-less G-machine, an abstract machine based
@@ -90,12 +98,12 @@ to STG instructions, machine code is generated from the STG representation.}
 
 
 \setsecnumdepth{part}
-\chapter{Introduction}
-\blind[3]
+\chapter{Introduction} \label{sec:intro}
+\todo{...}
 
 
 \setsecnumdepth{all}
-\chapter{State-of-the-art}
+\chapter{State-of-the-art} \label{sec:state-of-the-art}
 Although there are many practical functional languages in the ML family (F\#,
 OCaml, SML), Haskell is the only non-strict language among them. Its most
 popular compiler\citationNeeded, the \acrfull{ghc}, implements Haskell's
@@ -124,10 +132,11 @@ the following:
 	\item \hackage{ghc-heap-view}
 \end{itemize}
 
-\section{Existing solutions for thunk management}
-\blind[1]
+\section{Existing tools} \label{sec:existing-tools}
+Several tools related to tracing are available.
+\todo{...}
 
-\subsection{Hoed}
+\subsection*{Hoed} \label{sec:hoed}
 Hoed\cite{gh-hoed} is a tracer and a debugger for Haskell. Unlike the built-in
 debugger of \acrshort{ghci}, Hoed is implemented as a regular Haskell library.
 Users of Hoed manually annotate functions of interest to make the tracer
@@ -140,7 +149,7 @@ equal the name of the function being annotated. The \hsType{Observable}
 constraint on \hsType{a} is used by Hoed internally, the typeclass has a
 default implementation. The resulting trace of the debugging session is exposed
 via a web-based interface, to which the users connect with a regular web
-browser.  Hoed's traces include information about which functions have been
+browser. Hoed's traces include information about which functions have been
 called during the execution of the annotated program and what were their
 arguments. It only collects information about annotated functions.
 
@@ -162,7 +171,7 @@ as a tool for the identification and resolution of language implementation
 -dependent issues, such as memory leaks.
 
 
-\subsection{\hackage{nothunks}}
+\subsection*{\hackage{nothunks}} \label{sec:nothunks}
 \hackage{nothunks} is a recently released Haskell package which helps in writing
 thunk-free code. It defines a new typeclass, \hsTC{NoThunks}, along with
 instances for common Haskell types. Any type with a \hsTC{NoThunks} instance
@@ -187,7 +196,7 @@ automatically.
 % TODO do look into the mechanism by which nothunks actually checks for thunks,
 %      however
 
-\subsection{Hat}
+\subsection*{Hat} \label{sec:hat}
 The Haskell Tracer Hat\cite{proj-hat} is a source-level tracer. It works by
 compiling Haskell source files to annotated -- but still textual -- Haskell
 source files. After this source-to-source translation, the user compiles the
@@ -224,7 +233,7 @@ Hat uses the \hackage{haskell-src-exts} package to parse the source language.
 % TODO \texttt{haskell-src-exts} DOES NOT lack feature parity with GHC
 % TODO oblivious to laziness, implementation-agnostic
 
-\subsection{\hackage{htrace}}
+\subsection*{\hackage{htrace}} \label{sec:htrace}
 \hackage{htrace} \citationNeeded is a simple package which exports a single
 function: \hsSignature{htrace :: String -> a -> a}. As the name and function
 signature suggest, this function mirrors the behaviour of the standard
@@ -238,7 +247,7 @@ approach is still useful for debugging purposes. The indented tracing messages
 suggest the depth to which various thunks are evaluated at different points of
 the program's operation.
 
-\subsection{\hackage{ghc-heap-view}}
+\subsection*{\hackage{ghc-heap-view}} \label{sec:ghc-heap-view}
 \hackage{ghc-heap-view} is a Haskell package which makes advanced introspection
 of the Haskell heap a possibility from within pure Haskell code. It relies on
 the \hackage{ghc-heap} library which comes bundled with \acrshort{ghc}.
@@ -266,10 +275,70 @@ package primarily provides a rich library interface. It does not implement a
 tracing mode, which would facilitate collection of laziness-relevant
 information during the execution of entire programs.
 
-\section{Existing profilers}
-\blind[1]
+\subsection{Summary} \label{sec:summary}
+Table \ref{tbl:thunk-manager-comparison} summarizes the surveyed tooling.
 
-\subsection{Haskell Program Coverage}
+% \begin{savenotes} % support for footnotes within a tabular environment
+\begin{table}[h]
+	\centering
+	\begin{tabularx}{\textwidth}{|| l *{3}{L} c ||}
+		\hline
+		Tool
+		& Source changes
+		& Order of evaluation
+		& Thunks
+		& Memory awareness\footnote{The surveyed programs span several layers
+			of abstraction, with tools such as \nameref{sec:hoed} being completely
+			oblivious to implementation details, \nameref{sec:nothunks}
+			dependent on the runtime representation of values but not directly
+			exposing it to the user, and \nameref{sec:ghc-heap-view} reifying
+			implementation details.}
+		\\ \hline \hline
+
+		\nameref{sec:hoed}
+			& Required    % source changes
+			& Recorded    % order of evaluation
+			& Hidden      % thunks
+			& None        % memory awareness
+			\\ \hline
+		\nameref{sec:nothunks}
+			& Required    % source changes
+			& Ignored     % order of evaluation
+			& Hidden      % thunks
+			& None        % memory awareness
+			\\ \hline
+		\nameref{sec:hat}
+			& Unnecessary % source changes
+			& Recorded    % order of evaluation
+			& Hidden      % thunks
+			& None        % memory awareness
+			\\ \hline
+		\nameref{sec:htrace}
+			& Required    % source changes
+			& Illustrated % order of evaluation
+			& Hidden      % thunks
+			& None        % memory awareness
+			\\ \hline
+		\nameref{sec:ghc-heap-view}
+			& Unnecessary\footnote{\nameref{sec:ghc-heap-view} does not require
+				any changes to code which allocates the closures it is able to
+				inspect.}
+				% source changes
+			& Ignored     % order of evaluation
+			& Hidden      % thunks
+			& None        % memory awareness
+			\\ \hline
+	\end{tabularx}
+	\caption{An overview of existing solutions to thunk discovery and laziness
+	debugging.}
+	\label{tbl:thunk-manager-comparison}
+\end{table}
+% \end{savenotes}
+
+\section{Existing profilers} \label{sec:existing-profilers}
+\todo{...}
+
+\subsection{Haskell Program Coverage} \label{sec:hpc}
 Haskell Program Coverage\cite{hpc-paper} is (unsurprisingly) a code coverage
 tool for Haskell. Similarly to Hat, \acrshort{hpc} has a source-to-source mode
 of operation but additionally offers tight integration with \acrshort{ghc} and
@@ -298,7 +367,7 @@ sufficiently granular, the subexpression counters lack necessary information
 about their execution context and timing.
 
 
-\section{The Glasgow Haskell Compiler}
+\section{The Glasgow Haskell Compiler} \label{sec:ghc}
 \todo{Explain that several previous approaches had a direct influence on the
 compiler. \acrshort{ghc} now has \acrshort{hpc}-specific features, compiler plugins, which
 supersede source-to-source transformations (strengthening the monopoly but
@@ -307,15 +376,15 @@ increasingly amenable to various extensions via the trees that grow pattern,
 \hsIdent{Tickish}, etc.}
 \blind[1]
 
-\subsection{Compiler plugins}
+\subsection{Compiler plugins} \label{sec:compiler-plugins}
 \blind[1]
 
 
-\chapter{Analysis and design}
+\chapter{Analysis and design} \label{sec:analysis-design}
 \todo{what is analysis?}
 \blind[1]
 
-\section{Analysis}
+\section{Analysis} \label{sec:analysis}
 \begin{itemize}
 	\item the core question: is laziness worth the hassle?
 	\item original approach by modifying \acrshort{ghci}
@@ -325,7 +394,7 @@ increasingly amenable to various extensions via the trees that grow pattern,
 	\item build on \texttt{Tickish}
 \end{itemize}
 
-\subsection{The problem}
+\subsection{The problem} \label{sec:the-problem}
 \todo{really? ``The problem''?}
 
 The non-strict semantics of the Haskell language were a guiding principle which
@@ -342,7 +411,7 @@ A simple and popular method of dealing with undesired laziness is the language
 extension \texttt{BangPatterns}\citationNeeded [cit. both for the popularity
 and for the extension itself]. \texttt{BangPatterns} introduce a new syntax for
 forcing an expression to \acrshort{whnf} when pattern-matching on
-it\todo{clarification needed}. 
+it\todo{clarification needed}.
 
 \todo{the following paragraph is a plan on what to write} explain that bang
 patterns are often only added after something goes wrong and the compiler
@@ -357,9 +426,59 @@ This fight against the semantics is detrimental to the developer experience of
 the language. The question arises whether the benefits of laziness outweigh the
 toll it takes on the programmer. To answer this question, the runtime behaviour
 of lazy features needs to be understood. As a first step towards that
-understanding, we \todo{how do I refer to myself?} design a dynamic tracing
-tool capable of capturing information about the runtime behaviour of non-strict
-functions.
+understanding, we design a dynamic tracing tool capable of capturing
+information about the runtime behaviour of non-strict functions.
+
+\subsection{Approach} \label{sec:approach}
+\begin{itemize}
+	\item core question: how is laziness used in practice?
+	\item to understand that, we have to find out whether functions are strict and
+		to what extent, discover potential strictness dependencies between their
+		arguments, etc
+	\item to do that, we need to determine whether an argument has been
+		evaluated during function application
+	\item to do \textit{that}, we have to look at runtime values
+	\item to put the observations of runtime representations into context, we
+		have to somehow keep track of function calls
+\end{itemize}
+
+The goal of this work is to design and implement a tool suitable for
+understanding \todo{iffy} how is laziness utilised in real-life Haskell
+programs. To analyse the practical implications of \acrshort{ghc}'s
+implementation of non-strictness, we have to understand the strictness
+properties of functions. For example, some arguments may be evaluated if and
+only if others are. The tool must capture these dependencies and usage
+patterns, as they may uncover both use cases where laziness is essential and
+places where it could be safely avoided, even though static analysis cannot
+determine so.
+
+Dynamically inferring the strictness properties of functions requires a peek
+under the hood of Haskell's runtime machinery. Typical Haskell code is
+oblivious to the underlying representation of the values it manipulates, as
+reification of thunks would weaken equational reasoning and parametricity.
+
+\todo{nope, this is a false dichotomy}
+There are two general approaches one could take to capture the information
+about runtime structures over the execution of a Haskell program: modify the
+program, or modify the compiler. The former would involve rewriting the source
+code, while the latter
+
+The purpose of the
+project thus dictates use of features which violate some of the abstractions
+provided by the language\todo{does it really? We're interested in GHCi as
+well...}.
+
+Understanding the use of laziness at runtime requires insight about runtime
+structures that are otherwise transparent to the Haskell programmer. A key
+feature of the language is its support for equational reasoning, which would be
+broken if thunks were directly observable. To determine whether certain values
+have been evaluated or not, we need to observe state that is typically hidden
+from a Haskell program.
+
+Once we have the power to inspect the runtime representations of values, we
+need to use it to determine the strictness of functions. A function \hsCode{f}
+is strict in an argument \hsCode{a} if \hsCode{a} has to be evaluated whenever
+\hsCode{f a} is evaluated.
 
 \subsection{The \acrshort{ghci} approach}
 Taking inspiration from \cite{emp-study-laziness-r}, the original
@@ -394,9 +513,7 @@ The following sections will introduce each of the building blocks from which
 together.
 
 \subsubsection{The life of an interpreted expression}
-The Haskell programmer invokes \acrshort{ghci} either via its dedicated
-executable or by passing the \texttt{--interactive} command-line flag to
-\acrshort{ghc}. The user's expression entered at the prompt is fed through a
+The user's expression entered at the \acrshort{repl}'s prompt is fed through a
 modified \acrshort{ghc} pipeline, as \acrshort{ghci} expects Haskell
 expressions, not top-level definitions. This modified pipeline culminates in
 bytecode generation, producing a collection of bytecode objects together with
@@ -433,7 +550,7 @@ They are greeted with the interpreter's UI\todo{is it necessary
 to include this in the acronyms?} and can begin writing Haskell expressions
 directly or first invoking various \acrshort{ghci} commands to load modules,
 print types, kinds, and documentation, browse the contents of modules and
-perform other tasks. 
+perform other tasks.
 
 \subsubsection{Bytecode generation}
 The bytecode facilities of \acrshort{ghc} involve a detour from the typical
@@ -532,10 +649,17 @@ function call. In clean Haskell code without unsafe features, this is
 impossible in general, as the language requires the use of the \hsType{IO}
 monad in order to perform side-effecting computations.
 
+Since rewriting functions into a monadic form would be a difficult undertaking,
+we will \todo{tense?} make use of unsafe features instead. Integer counters are
+enough for call identification purposes, so we choose to keep one counter per
+function. All counters can be stored in a single mutable map, which associates
+
 to-dos:
 \begin{itemize}
 	\item describe the general idea of the source plugin
 	\item explain the use of SYB
+	\item explain the use of TH and splicing
+	\item explain how the global mutable map resides in the plugin's module
 \end{itemize}
 
 \chapter{Realisation}
