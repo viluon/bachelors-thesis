@@ -81,6 +81,7 @@
 \newacronym{ghci}{GHCi}{\acrshort{ghc} interpreter}
 \newacronym{rts}{RTS}{\acrshort{ghc} RunTime System}
 \newacronym{repl}{REPL}{Read-Eval-Print Loop}
+\newacronym{ast}{AST}{Abstract Syntax Tree}
 \newacronym{hpc}{HPC}{Haskell Program Coverage}
 % TODO this should probs go into a glossary instead?
 \newacronym{stg}{STG}{Spineless Tag\-less G-machine, an abstract machine based
@@ -298,25 +299,25 @@ Table \ref{tbl:thunk-manager-comparison} summarizes the surveyed tooling.
 		\nameref{sec:hoed}
 			& Required    % source changes
 			& Recorded    % order of evaluation
-			& Hidden      % thunks
+			& Transparent % thunks
 			& None        % memory awareness
 			\\ \hline
 		\nameref{sec:nothunks}
 			& Required    % source changes
 			& Ignored     % order of evaluation
-			& Hidden      % thunks
-			& None        % memory awareness
+			& Detected    % thunks
+			& Limited     % memory awareness
 			\\ \hline
 		\nameref{sec:hat}
 			& Unnecessary % source changes
 			& Recorded    % order of evaluation
-			& Hidden      % thunks
+			& Transparent % thunks
 			& None        % memory awareness
 			\\ \hline
 		\nameref{sec:htrace}
 			& Required    % source changes
 			& Illustrated % order of evaluation
-			& Hidden      % thunks
+			& Transparent % thunks
 			& None        % memory awareness
 			\\ \hline
 		\nameref{sec:ghc-heap-view}
@@ -325,8 +326,8 @@ Table \ref{tbl:thunk-manager-comparison} summarizes the surveyed tooling.
 				inspect.}
 				% source changes
 			& Ignored     % order of evaluation
-			& Hidden      % thunks
-			& None        % memory awareness
+			& Reified     % thunks
+			& Full        % memory awareness
 			\\ \hline
 	\end{tabularx}
 	\caption{An overview of existing solutions to thunk discovery and laziness
@@ -480,7 +481,7 @@ need to use it to determine the strictness of functions. A function \hsCode{f}
 is strict in an argument \hsCode{a} if \hsCode{a} has to be evaluated whenever
 \hsCode{f a} is evaluated.
 
-\subsection{The \acrshort{ghci} approach}
+\subsection{The \acrshort{ghci} approach} \label{sec:ghci-approach}
 Taking inspiration from \cite{emp-study-laziness-r}, the original
 implementation plan was to work with \acrfull{ghci}. The bytecode compiler and
 interpreter lack support for certain \acrshort{ghc} language extensions, namely
@@ -617,19 +618,11 @@ at again.
 \ldots
 
 \subsection{The compiler plugin approach}
-The second approach to dynamic tracing, which we\todo{?} eventually settled on,
-involves a relatively recently introduced feature of \acrshort{ghc}: source
-plugins\cite{ghc-source-plugins}. Compiler source plugins are Haskell packages
-which invoke the \acrshort{ghc} API\todo{same as UI, I suppose?} to hook into
-the compiler pipeline and modify the compiled program at various stages of the
-front-end. Unlike Core plugins, which operate on the internal language, source
-plugins deal with the entirety of Haskell's surface syntax.
-
 To produce useful tracing output, a dynamic tracing framework must capture
 interesting events during a program's evaluation and relate them to one
 another. In particular, the evaluation of function arguments must be clearly
 related to the respective function call to enable reasoning about the
-strictness of a function on a case-by-case basis. While retaining the order of
+strictness of a function on a call-by-call basis. While retaining the order of
 evaluation is trivial in a call-by-value language, laziness introduces
 interleaving. This can only be dealt with by the introduction of state into the
 program (or into the tracing framework) in order to recover the dependencies
@@ -638,9 +631,11 @@ in the order of the trace events.
 
 It is this function-call-specific state that becomes difficult to express
 without high-level information about the program structure at hand, as was the
-case with the previous approach.
+case with \nameref{sec:ghci-approach}\todo{lowercase}.
 
-\subsubsection{Rewriting argument references}
+\subsubsection*{Rewriting argument references}
+\todo{A manual introduction of state into the program is rather trivial\ldots}
+
 Fortunately, function-call-specific state can be easily introduced into the
 source program, simply as local variables. It suffices to keep a unique
 identifier of the particular function call that the argument evaluation traces
@@ -650,9 +645,9 @@ impossible in general, as the language requires the use of the \hsType{IO}
 monad in order to perform side-effecting computations.
 
 Since rewriting functions into a monadic form would be a difficult undertaking,
-we will \todo{tense?} make use of unsafe features instead. Integer counters are
-enough for call identification purposes, so we choose to keep one counter per
-function. All counters can be stored in a single mutable map, which associates
+we prefer the way of unsafe features. Integer counters are enough for call
+identification purposes, so we choose to keep one counter per function. All
+counters can be stored in a single mutable map, which associates
 
 to-dos:
 \begin{itemize}
@@ -660,7 +655,51 @@ to-dos:
 	\item explain the use of SYB
 	\item explain the use of TH and splicing
 	\item explain how the global mutable map resides in the plugin's module
+	\item explain the difficulty of trying to implement similar functionality
+		in a core plugin instead
 \end{itemize}
+
+Equipped with a means of introducing benign side-effects into programs for
+tracing purposes, we are in search of a way of rewriting source code to put
+these side-effects to use. One plausible approach would be direct source code
+rewriting, akin to \nameref{sec:hat}. As described in section
+\ref{sec:existing-tools}, source-to-source transformations have the benefit of
+generality, but also the downside of additional complexity in both the
+rewriting process itself and the build process of the program, which the user
+of our tool would have to deal with. Furthermore, true implementation
+agnosticism of the tracing framework would require compiler-independent support
+for inspection of the Haskell heap, for which no solution seems to exist at the
+time of writing\todo{right?}. A less general but more ergonomic way of
+rewriting source code is via \acrshort{ghc}'s \textit{source plugins}, which
+hook directly into the compiler pipeline and can operate on the surface-level
+syntax at different stages.
+
+\subsubsection*{Source plugins}
+Source plugins\cite{ghc-source-plugins} are a relatively recently introduced
+feature of \acrshort{ghc}. Compiler source plugins are Haskell packages which
+invoke the \acrshort{ghc} API\todo{same as UI, I suppose?} to hook into the
+compiler pipeline and modify the compiled program at various stages of the
+front-end. Unlike Core plugins\citationNeeded, which operate on the internal
+language, source plugins deal with the entirety of Haskell's surface syntax.
+
+Rather than parsing, transforming, and serialising the source code separately
+to the compilation step, we can design a plugin that performs the required
+source transformations in the compiler pipeline directly. We introduce two
+tracing functions, \hsIdent{traceEntry} and \hsIdent{traceArg}, into the
+current module. We then rewrite the source program to call \hsIdent{traceEntry}
+every time a function in the program is invoked and we thread every reference
+to a function's argument through \hsIdent{traceArg}. This introduces the
+opportunity to inspect the runtime representations of the arguments passed to a
+function when the result of the function is under scrutiny.
+
+We can determine the strictness properties of a transformed function from the
+calls it makes to the tracing utilities. If we record a call to a (transformed)
+function \hsCode{f :: Int -> Int -> Int} defined as \hsCode{f x y = \ldots} via
+\hsIdent{traceEntry} but no calls to \hsIdent{traceArg}, the function makes no
+use of its arguments.
+
+\subsubsection*{Rewriting the \acrshort{ast}}
+
 
 \chapter{Realisation}
 \ldots
