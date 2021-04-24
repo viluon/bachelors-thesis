@@ -27,7 +27,7 @@
 \usepackage{tabularx}
 \usepackage{ragged2e}
 \usepackage{booktabs}
-
+\usepackage[numbers]{natbib}
 
 % custom commands
 \newcommand{\todo}[1]{\textcolor{red}{\textbf{[[#1]]}}}
@@ -80,8 +80,11 @@
 % correctly?
 \newacronym{ghci}{GHCi}{\acrshort{ghc} interpreter}
 \newacronym{rts}{RTS}{\acrshort{ghc} RunTime System}
+\newacronym{syb}{SYB}{Scrap Your Boilerplate}
 \newacronym{repl}{REPL}{Read-Eval-Print Loop}
 \newacronym{ast}{AST}{Abstract Syntax Tree}
+\newacronym{api}{API}{Application Programming Interface}
+\newacronym{rhs}{RHS}{Right-Hand Side}
 \newacronym{hpc}{HPC}{Haskell Program Coverage}
 % TODO this should probs go into a glossary instead?
 \newacronym{stg}{STG}{Spineless Tag\-less G-machine, an abstract machine based
@@ -633,7 +636,7 @@ It is this function-call-specific state that becomes difficult to express
 without high-level information about the program structure at hand, as was the
 case with \nameref{sec:ghci-approach}\todo{lowercase}.
 
-\subsubsection*{Rewriting argument references}
+\subsubsection*{Adding state}
 \todo{A manual introduction of state into the program is rather trivial\ldots}
 
 Fortunately, function-call-specific state can be easily introduced into the
@@ -694,11 +697,68 @@ function when the result of the function is under scrutiny.
 
 We can determine the strictness properties of a transformed function from the
 calls it makes to the tracing utilities. If we record a call to a (transformed)
-function \hsCode{f :: Int -> Int -> Int} defined as \hsCode{f x y = \ldots} via
-\hsIdent{traceEntry} but no calls to \hsIdent{traceArg}, the function makes no
-use of its arguments.
+top-level function \hsCode{f :: Int -> Int -> Int} defined as \hsCode{f x y =
+\ldots} via \hsIdent{traceEntry} but no calls to \hsIdent{traceArg}, the
+function makes no use of any of its arguments, and is therefore non-strict in
+both of them. Examples of functions of this behaviour include \hsCode{f x y =
+3}, \hsCode{f x y = undefined}, or \hsCode{f x y = f x y}. Note that the latter
+example references the arguments on the \acrshort{rhs}, but these references are
+never evaluated. If a call to \hsIdent{f} is followed by a call to
+\hsIdent{traceArg} for the \hsIdent{x} argument, but the program terminates and
+no calls to \hsIdent{traceArg} for the \hsIdent{y} argument occur, we say that
+\hsIdent{f} is strict in \hsIdent{x} and \textit{potentially non-strict} in
+\hsIdent{y}. \hsIdent{f} could be non-strict in \hsIdent{y}, but it could also
+conditionally require \hsIdent{y} to be evaluated based on the value of
+\hsIdent{x}. The property of a multi-argument function being strict in one
+argument if another argument matches a predicate (and being non-strict in that
+argument otherwise) is what makes the interpretation of traces of nested
+functions tricky.
 
 \subsubsection*{Rewriting the \acrshort{ast}}
+Armed with the necessary tracing functions and a plan on how to apply them, we
+move on to the problem of syntax tree transformation. The \texttt{GhcPlugins}
+module\cite{hkg-ghcplugins} of the \acrshort{ghc} \acrshort{api} includes the
+necessary functions to hook into the compiler pipeline. A source plugin can
+choose to modify the syntax tree at three different stages: right after
+parsing, between renaming and typechecking, or just after the typechecker has
+run. These hooks involve different trade-offs. Construction of new (sub)trees
+becomes more and more difficult further down the pipeline as the internal
+representation accumulates metadata from the various stages. On the other hand,
+the available metadata may be necessary for certain tasks and can help plugin
+authors write more robust implementations. For example, constructing parsed
+expressions is almost as easy as writing the surface syntax in a source file,
+using strings as identifiers, but it may result in accidental captures of
+bindings in scope. Because the renaming phase disambiguates identifiers,
+constructing renamed \acrshort{ast}s avoids this issue, at the expense of
+either working with abstract identifiers, or invoking a renaming phase
+manually.
+
+As \citeauthor{blog-source-plugins}'s introduction to source plugins shows, the
+costs associated with the construction of syntax trees later in the pipeline
+are not prohibitive\cite{blog-source-plugins}. The \acrshort{ghc}
+\acrshort{api} exports high-level functions which let the plugin author take
+trees from parsed to renamed to typechecked in only a few lines of code.
+Moreover, the plugin author can use the quasi\-quoting\cite{th-quasiquoting}
+features of Template Haskell\cite{th-classic} to greatly simplify the
+construction of expressions. The quasi\-quoting facilities even manage
+references to definitions in the scope of the plugin's source code
+automatically. Common patterns in the expressions created by the plugin can be
+included as regular top-level definitions in the plugin's module or in a module
+the plugin depends on and spliced into the syntax tree.
+
+The actual process of rewriting the right-hand sides of function definitions
+involves the data types for the surface syntax of Haskell, which has hundreds
+of constructs\cite[Key~Design~Choices]{arch-ghc}. The general task of
+transforming hierarchies of deeply nested data types has many innovative
+Haskell solutions, including optics and generic programming. While we could use
+pro\-functor optics or novel generic approaches, we choose to use a fairly
+simple, if a bit dated, generic programming technique via the \acrfull{syb}
+library\cite{syb-paper}. \acrshort{syb}'s built-in querying and transformation
+schemes empower the Haskell programmer with means of applying type-specific
+functions in all appropriately typed fields of a nested data structure. The
+library is built using powerful generalisations of folding and a number of
+combinators, making it easy to create new traversal schemes as compositions of
+existing building blocks.
 
 
 \chapter{Realisation}
@@ -766,7 +826,7 @@ speeds up the edit-compile-run cycle tremendously.
 
 \bibliography{bbl}
 % TODO get ISO 690 working
-\bibliographystyle{plain}
+\bibliographystyle{plainnat}
 
 \setsecnumdepth{all}
 \appendix

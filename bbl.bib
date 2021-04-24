@@ -64,12 +64,18 @@
 	year={1989}
 }
 
-@inbook{arch-ghc,
+@incollection{arch-ghc,
 	chapter={The Glasgow Haskell Compiler},
+	author={Marlow, Simon and Peyton Jones, Simon},
 	crossref={arch-oss-apps},
 }
 
-@article{arch-oss-apps,
+@incollection{arch-ghc-design,
+	chapter={Key Design Choices},
+	crossref={arch-ghc},
+}
+
+@book{arch-oss-apps,
 	booktitle={The Architecture of Open Source Applications: Structure, Scale, and a Few More Fearless Hacks},
 	volume={II},
 	date={May 2012},
@@ -110,3 +116,62 @@
 	year={2019}
 }
 
+@ONLINE{hkg-ghcplugins,
+	title = {GhcPlugins},
+	url = {http://hackage.haskell.org/package/ghc-8.10.2/docs/GhcPlugins.html},
+	urldate = {2021-04-24}
+}
+
+@ONLINE{blog-source-plugins,
+	title = {Source Plugins: Four ways to build a typechecked Haskell expression},
+	author = {Pickering, Matthew},
+	url = {https://mpickering.github.io/posts/2018-06-11-source-plugins.html},
+	urldate = {2021-04-24}
+}
+
+@inproceedings{th-classic,
+	author = {Sheard, Tim and Jones, Simon Peyton},
+	title = {Template Meta-Programming for Haskell},
+	year = {2002},
+	isbn = {1581136056},
+	publisher = {Association for Computing Machinery},
+	address = {New York, NY, USA},
+	url = {https://doi.org/10.1145/581690.581691},
+	doi = {10.1145/581690.581691},
+	abstract = {We propose a new extension to the purely functional programming language Haskell that supports compile-time meta-programming. The purpose of the system is to support the algorithmic construction of programs at compile-time.The ability to generate code at compile time allows the programmer to implement such features as polytypic programs, macro-like expansion, user directed optimization (such as inlining), and the generation of supporting data structures and functions from existing data structures and functions.Our design is being implemented in the Glasgow Haskell Compiler, ghc.},
+	booktitle = {Proceedings of the 2002 ACM SIGPLAN Workshop on Haskell},
+	pages = {1–16},
+	numpages = {16},
+	keywords = {meta programming, templates},
+	location = {Pittsburgh, Pennsylvania},
+	series = {Haskell '02}
+}
+
+@inproceedings{th-quasiquoting,
+	author = {Mainland, Geoffrey},
+	title = {Why It's Nice to Be Quoted: Quasiquoting for Haskell},
+	year = {2007},
+	isbn = {9781595936745},
+	publisher = {Association for Computing Machinery},
+	address = {New York, NY, USA},
+	url = {https://doi.org/10.1145/1291201.1291211},
+	doi = {10.1145/1291201.1291211},
+	abstract = {Quasiquoting allows programmers to use domain specific syntax to construct program fragments. By providing concrete syntax for complex data types, programs become easier to read, easier to write, and easier to reason about and maintain. Haskell is an excellent host language for embedded domain specific languages, and quasiquoting ideally complements the language features that make Haskell perform so well in this area. Unfortunately, until now no Haskell compiler has provided support for quasiquoting. We present an implementation in GHC and demonstrate that by leveraging existing compiler capabilities, building a full quasiquoter requires little more work than writing a parser. Furthermore, we provide a compile-time guarantee that all quasiquoted data is type-correct.},
+	booktitle = {Proceedings of the ACM SIGPLAN Workshop on Haskell Workshop},
+	pages = {73–82},
+	numpages = {10},
+	keywords = {meta programming, quasiquoting},
+	location = {Freiburg, Germany},
+	series = {Haskell '07}
+}
+
+@article{syb-paper,
+	title={Scrap your boilerplate: a practical design pattern for generic programming},
+	author={L{\"a}mmel, Ralf and Jones, Simon Peyton},
+	journal={ACM SIGPLAN Notices},
+	volume={38},
+	number={3},
+	pages={26--37},
+	year={2003},
+	publisher={ACM New York, NY, USA}
+}
