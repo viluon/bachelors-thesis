@@ -90,12 +90,33 @@ to STG instructions, machine code is generated from the STG representation.}
 \authorWithDegrees{Ondřej Kvapil} %author's name with academic degrees
 \supervisor{Ing. Filip Křikava, Ph.D.}
 \acknowledgements{THANKS (remove entirely in case you do not wish to thank anyone)}
-\abstractEN{Lazy evaluation is a potentially }
-\abstractCS{V několika větách shrňte obsah a přínos této práce v českém jazyce.}
+\abstractEN{Lazy evaluation is a potentially powerful implementation strategy
+	for non-strict languages, freeing the programmer to focus on what a program
+	means rather than on how it is computed. Laziness naturally accommodates
+	user-defined control flow and evaluates only the required subset of a given
+	program in a demand-driven manner. However, delayed evaluation makes
+	complexity analysis challenging and can lead to hard-to-predict memory
+	behaviour. To better understand the trade-offs laziness offers and how it
+	is used in practical scenarios, we design a dynamic tracing plugin for
+	the \acrlong{ghc}, implement a proof of concept, and demonstrate its
+	ability to record crucial information about the use of laziness in simple
+	Haskell programs.}
+\abstractCS{Líné vyhodnocování je potenciálně mocná implementační strategie pro
+	non-strict programovací jazyky, která umožňuje programátorům soustředit se
+	na to, co program znamená, aniž by byli rušeni způsobem jeho vyhodnocení.
+	Lenost přináší možnost přirozeně vyjádřit uživatelem definované řídící
+	konstrukce a vede k vyhodnocení jen potřebné části programu. Odklad
+	vyhodnocování ale komplikuje analýzu složitosti a může vést k těžko
+	předvídatelnému paměťovému chování. Pro lepší pochopení kompromisů
+	spojených s leností a jejího využití v praktických situacích jsme navrhli
+	zásuvný modul pro dynamické trasování do kompilátoru \acrlong{ghc},
+	na\-implementovali prototyp a ukázali jeho schopnost zachytit klíčové informace
+	o využití lenosti v jednoduchých Haskell programech.}
 \placeForDeclarationOfAuthenticity{Prague}
-\keywordsCS{Haskell, Dynamické trasování, Líné vyhodnocování, Plugin moduly
-kompilátorů, Generické programování} \keywordsEN{Haskell, Dynamic tracing, Lazy
-evaluation, Compiler plugins, Generic programming}
+\keywordsCS{Haskell, dynamické trasování, líné vyhodnocování, zásuvné moduly
+kompilátorů, generické programování}
+\keywordsEN{Haskell, dynamic tracing, lazy evaluation, compiler plugins,
+generic programming}
 \declarationOfAuthenticityOption{4} %select as appropriate, according to the desired license (integer 1-6)
 % \website{http://site.example/thesis} %optional thesis URL
 
