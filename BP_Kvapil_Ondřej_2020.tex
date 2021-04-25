@@ -125,16 +125,32 @@ generic programming}
 
 \setsecnumdepth{part}
 \chapter{Introduction} \label{sec:intro}
-\todo{...}
+Conventional programming languages of all paradigms use -- almost equivocally
+-- eager evaluation strategies. Non-strict semantics have far-reaching
+implications on the design of a language\cite{haskell-is-pure} and pose many
+implementation challenges.
+
+Lazy evaluation is a potentially powerful implementation strategy
+for non-strict languages, freeing the programmer to focus on what a program
+means rather than on how it is computed. Laziness naturally accommodates
+user-defined control flow and evaluates only the required subset of a given
+program in a demand-driven manner. However, delayed evaluation makes
+complexity analysis challenging and can lead to hard-to-predict memory
+behaviour. To better understand the trade-offs laziness offers and how it
+is used in practical scenarios, we design a dynamic tracing plugin for
+the \acrlong{ghc}, implement a proof of concept, and demonstrate its
+ability to record crucial information about the use of laziness in simple
+Haskell programs.
 
 
 \setsecnumdepth{all}
 \chapter{State-of-the-art} \label{sec:state-of-the-art}
-Although there are many practical functional languages in the ML family (F\#,
-OCaml, SML), Haskell is the only non-strict language among them. Its most
-popular compiler\citationNeeded, the \acrfull{ghc}, implements Haskell's
-non-strict features by lazy evaluation facilitated mainly by a runtime data
-structure called a \textit{thunk}, which represents delayed computations.
+Although there are many functional languages of the ML family which enjoy
+widespread use (F\#, OCaml, SML), Haskell is the only non-strict language among
+them. Its most popular compiler\citationNeeded, the \acrfull{ghc}, implements
+Haskell's non-strict semantics by lazy evaluation facilitated mainly by a
+runtime data structure called a \textit{thunk}, which represents delayed
+computations.
 
 \todo{rewrite the following (repetitive use of ``although'', laziness is only
 an implementation technique)}
@@ -400,15 +416,15 @@ supersede source-to-source transformations (strengthening the monopoly but
 simplifying implementation and streamlining the process), and a codebase that's
 increasingly amenable to various extensions via the trees that grow pattern,
 \hsIdent{Tickish}, etc.}
-\blind[1]
+...
 
 \subsection{Compiler plugins} \label{sec:compiler-plugins}
-\blind[1]
+...
 
 
 \chapter{Analysis and design} \label{sec:analysis-design}
 \todo{what is analysis?}
-\blind[1]
+...
 
 \section{Analysis} \label{sec:analysis}
 \begin{itemize}
@@ -433,20 +449,21 @@ prove the strictness of a function in an argument by static strictness
 analysis, the function will remain lazy, often leading to pathological memory
 behaviour at runtime.
 
+\todo{it's not just bang patterns though, the strictness annotations in
+datatypes are a part of Haskell 2010!}
 A simple and popular method of dealing with undesired laziness is the language
-extension \texttt{BangPatterns}\citationNeeded [cit. both for the popularity
-and for the extension itself]. \texttt{BangPatterns} introduce a new syntax for
+extension \texttt{BangPatterns}\citationNeeded\todo{cit. both for the popularity
+and for the extension itself}. \texttt{BangPatterns} introduce a new syntax for
 forcing an expression to \acrshort{whnf} when pattern-matching on
 it\todo{clarification needed}.
 
-\todo{the following paragraph is a plan on what to write} explain that bang
-patterns are often only added after something goes wrong and the compiler
-doesn't help with choosing where to place them (or indeed with any memory
-``leaks'' at all). Haskell keeps making things lazy and the developer keeps
-running into various bugs due to laziness, in a kind of whack-a-mole game
-(although that isn't exactly right, fixing one memory leak doesn't introduce
-another). Note also that Idris, a language inspired by Haskell, chose purity
-but not laziness.
+\todo{explain that bang patterns are often only added after something goes
+	wrong and the compiler doesn't help with choosing where to place them (or
+	indeed with any memory ``leaks'' at all). Haskell keeps making things lazy
+	and the developer keeps running into various bugs due to laziness, in a
+	kind of whack-a-mole game (although that isn't exactly right, fixing one
+	memory leak doesn't introduce another). Note also that Idris, a language
+	inspired by Haskell, chose purity but not laziness.}
 
 This fight against the semantics is detrimental to the developer experience of
 the language. The question arises whether the benefits of laziness outweigh the
@@ -674,6 +691,7 @@ we prefer the way of unsafe features. Integer counters are enough for call
 identification purposes, so we choose to keep one counter per function. All
 counters can be stored in a single mutable map, which associates
 
+\todo{
 to-dos:
 \begin{itemize}
 	\item describe the general idea of the source plugin
@@ -683,6 +701,7 @@ to-dos:
 	\item explain the difficulty of trying to implement similar functionality
 		in a core plugin instead
 \end{itemize}
+}
 
 Equipped with a means of introducing benign side-effects into programs for
 tracing purposes, we are in search of a way of rewriting source code to put
@@ -850,15 +869,13 @@ by passing a flag to the build system on subsequent invocations. This prevents
 rebuilding the \textbf{stage 1} compiler every time a source file changes, which
 speeds up the edit-compile-run cycle tremendously.
 
-\blind[3]
-
+...
 
 
 
 \setsecnumdepth{part}
 \chapter{Conclusion}
-
-\blind[2]
+...
 
 \bibliography{bbl}
 % TODO get ISO 690 working
