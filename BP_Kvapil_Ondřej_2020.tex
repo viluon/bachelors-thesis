@@ -1,4 +1,5 @@
 % arara: xelatex
+% arara: makeglossaries
 % arara: xelatex
 % arara: xelatex
 
@@ -50,29 +51,6 @@
 \iflanguage{czech}{\renewcommand*{\acronymname}{Seznam pou{\v z}it{\' y}ch zkratek}}{}
 \makeglossaries
 
-% % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
-% EDIT THIS
-% % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
-
-\department{Programming Research Laboratory}
-\title{Haskell Dynamic Tracing}
-\authorGN{Ondřej} %author's given name/names
-\authorFN{Kvapil} %author's surname
-\author{Ondřej Kvapil} %author's name without academic degrees
-\authorWithDegrees{Ondřej Kvapil} %author's name with academic degrees
-\supervisor{Ing. Filip Křikava, Ph.D.}
-\acknowledgements{THANKS (remove entirely in case you do not wish to thank anyone)}
-\abstractEN{Summarize the contents and contribution of your work in a few sentences in English language.}
-\abstractCS{V n{\v e}kolika v{\v e}t{\' a}ch shr{\v n}te obsah a p{\v r}{\' i}nos t{\' e}to pr{\' a}ce v {\v c}esk{\' e}m jazyce.}
-\placeForDeclarationOfAuthenticity{Prague}
-\keywordsCS{Replace with comma-separated list of keywords in Czech.}
-\keywordsEN{Replace with comma-separated list of keywords in English.}
-\declarationOfAuthenticityOption{4} %select as appropriate, according to the desired license (integer 1-6)
-% \website{http://site.example/thesis} %optional thesis URL
-
-
-\begin{document}
-
 % \newacronym{CVUT}{{\v C}VUT}{{\v C}esk{\' e} vysok{\' e} u{\v c}en{\' i} technick{\' e} v Praze}
 % \newacronym{FIT}{FIT}{Fakulta informa{\v c}n{\' i}ch technologi{\' i}}
 \newacronym{ghc}{GHC}{Glasgow Haskell Compiler}
@@ -100,6 +78,28 @@ to STG instructions, machine code is generated from the STG representation.}
 \newacronym{tso}{TSO}{Thread State Object}
 \newacronym{whnf}{WHNF}{Weak Head Normal Form}
 
+% % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
+% EDIT THIS
+% % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
+
+\department{Programming Research Laboratory}
+\title{Haskell Dynamic Tracing}
+\authorGN{Ondřej} %author's given name/names
+\authorFN{Kvapil} %author's surname
+\author{Ondřej Kvapil} %author's name without academic degrees
+\authorWithDegrees{Ondřej Kvapil} %author's name with academic degrees
+\supervisor{Ing. Filip Křikava, Ph.D.}
+\acknowledgements{THANKS (remove entirely in case you do not wish to thank anyone)}
+\abstractEN{Summarize the contents and contribution of your work in a few sentences in English language.}
+\abstractCS{V několika větách shrňte obsah a přínos této práce v českém jazyce.}
+\placeForDeclarationOfAuthenticity{Prague}
+\keywordsCS{Replace with comma-separated list of keywords in Czech.}
+\keywordsEN{Replace with comma-separated list of keywords in English.}
+\declarationOfAuthenticityOption{4} %select as appropriate, according to the desired license (integer 1-6)
+% \website{http://site.example/thesis} %optional thesis URL
+
+
+\begin{document}
 
 \setsecnumdepth{part}
 \chapter{Introduction} \label{sec:intro}
@@ -744,15 +744,24 @@ construction of expressions. The quasi\-quoting facilities even manage
 references to definitions in the scope of the plugin's source code
 automatically. Common patterns in the expressions created by the plugin can be
 included as regular top-level definitions in the plugin's module or in a module
-the plugin depends on and spliced into the syntax tree.
+the plugin depends on and spliced into the syntax tree. With these high-level
+features in mind, the suitable injection mechanisms for a dynamic tracing
+source plugin seem to be before and after typechecking. We only discuss the
+latter approach in the following text, even though a source plugin operating on
+the renamed \acrshort{ast} would likely be very similar. Note that the
+\acrshort{api} makes no hard distinction between the different approaches to
+pipeline extensions. Indeed, a source plugin simply provides a value of the
+\hsType{Plugin} data type, overriding the appropriate fields of a default
+plugin implementation with monadic functions. A source plugin could run custom
+code after each of the frontend stages.
 
 The actual process of rewriting the right-hand sides of function definitions
 involves the data types for the surface syntax of Haskell, which has hundreds
 of constructs\cite[Key~Design~Choices]{arch-ghc}. The general task of
 transforming hierarchies of deeply nested data types has many innovative
 Haskell solutions, including optics and generic programming. While we could use
-pro\-functor optics or novel generic approaches, we choose to use a fairly
-simple, if a bit dated, generic programming technique via the \acrfull{syb}
+pro\-functor optics or novel generic approaches, we leverage a fairly simple,
+if a bit dated, generic programming technique via the \acrfull{syb}
 library\cite{syb-paper}. \acrshort{syb}'s built-in querying and transformation
 schemes empower the Haskell programmer with means of applying type-specific
 functions in all appropriately typed fields of a nested data structure. The
@@ -760,6 +769,11 @@ library is built using powerful generalisations of folding and a number of
 combinators, making it easy to create new traversal schemes as compositions of
 existing building blocks.
 
+\subsubsection*{Anatomy of a plugin}
+The structure of our source plugin, which hooks into the pipeline after the
+typechecking phase, is as follows. The field of interest in the \hsType{Plugin}
+type is \hsIdent{typeCheckResultAction}, Neglecting command-line arguments, it
+has the type \hsType{ModSummary -> TcGblEnv -> TcM TcGblEnv}.
 
 \chapter{Realisation}
 \ldots
@@ -831,9 +845,6 @@ speeds up the edit-compile-run cycle tremendously.
 \setsecnumdepth{all}
 \appendix
 
-\chapter{Acronyms}
-
-\todo{fix acronym glossary}
 \printglossary[type=\acronymtype]
 
 
