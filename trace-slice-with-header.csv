@@ -1,0 +1,8 @@
+Timestamp,Thread ID,Trace type,Function,Call ID,Argument,Closure
+950778579,ThreadId 1,EntryTrace,qsort,1,,
+949631938,ThreadId 1,ArgTrace,qsort,1,as,constr
+951867310,ThreadId 1,ArgTrace,qsort,1,a,thunk
+952240416,ThreadId 1,EntryTrace,qsort,2,,
+952223429,ThreadId 1,ArgTrace,qsort,2,as,thunk
+952269949,ThreadId 1,ArgTrace,qsort,2,a,constr
+...,,,,,,

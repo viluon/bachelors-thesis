@@ -18,6 +18,7 @@
 \usepackage[makeroom]{cancel}
 \usepackage{mathpartir}
 \usepackage{xparse,minted}
+\usepackage{csvsimple}
 
 % figure support
 \usepackage{import}
@@ -44,8 +45,8 @@
 
 
 \title{Haskell Dynamic Tracing}
-\author{Ondřej Kvapil}
-\institute{Faculty of information technology, Czech technical university in Prague}
+\author{Ondřej Kvapil, supervised by Ing. Filip Křikava, PhD.}
+\institute{Czech Technical University in Prague, Faculty of Information Technology}
 \date{28th April, 2021}
 
 
@@ -55,18 +56,18 @@
 	\maketitle
 \end{center}
 
-\begin{frame}{Outline}
-	\begin{itemize}
-		\item Introduction
-		\item Goals of the thesis
-		\item Motivation behind the choice of topic
-		\item Technical terminology and acronyms
-		\item Current state of the solution
-		\item Solution of the problem (expected outcome)
-		\item Conclusion -- a summary of the important points, contributions
-		\item Thanks \& discussion
-	\end{itemize}
-\end{frame}
+%\begin{frame}{Outline}
+%	\begin{itemize}
+%		\item Introduction
+%		\item Goals of the thesis
+%		\item Motivation behind the choice of topic
+%		\item Technical terminology and acronyms
+%		\item Current state of the solution
+%		\item Solution of the problem (expected outcome)
+%		\item Conclusion -- a summary of the important points, contributions
+%		\item Thanks \& discussion
+%	\end{itemize}
+%\end{frame}
 
 \begin{frame}[fragile]{Introduction}
 	\begin{itemize}
@@ -130,16 +131,45 @@
 \end{frame}
 
 \begin{frame}{Our solution}
+	\begin{itemize}
+		\item Compiler plugin for the \alert{Glasgow Haskell Compiler} \pause
+		\item Transforms surface syntax of Haskell to add tracing calls \pause
+		\item Traces evaluation of function calls and function arguments
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Our solution}
 	\begin{overprint}
-		\onslide<1-3>
-		\begin{itemize}
-			\item<1-3> Compiler plugin for the \alert{Glasgow Haskell Compiler}
-			\item<2-3> Transforms surface syntax of Haskell to add tracing calls
-			\item<3> Traces evaluation of function calls and function arguments
-		\end{itemize}
-		\onslide<4>
-		hi
+		\onslide<1>
+		\begin{minted}[autogobble]{haskell}
+			qsort [] = []
+			qsort (a:as) = qsort left ++ [a] ++ qsort right
+				where (left, right) = (filter (<=a) as, filter (>a) as)
+
+			main = print $ qsort [1 + 8, 4, 0, 3, 1, 23, 11, 18]
+		\end{minted}
+
+		\onslide<2>
+		\begin{minted}[autogobble]{haskell}
+			qsort (a : as) = let !call_number_1 = traceEntry "qsort"
+			                 in qsort left
+			                       ++ [(traceArg "qsort") "a" call_number_1 a]
+			                       ++ qsort right
+			  where
+			  (left, right) = let !call_number_2 = traceEntry "qsort"
+			                   in (filter
+			                         (<= (traceArg "qsort") "a" call_number_2 a)
+			                         (traceArg "qsort") "as" call_number_2 as,
+			                       filter
+			                         (> (traceArg "qsort") "a" call_number_2 a)
+			                         (traceArg "qsort") "as" call_number_2 as)
+		\end{minted}
+
 	\end{overprint}
+\end{frame}
+
+\begin{frame}{Our solution}
+	\csvautotabular{trace-slice-with-header.csv}
 \end{frame}
 
 \begin{frame}{Summary}
@@ -152,8 +182,18 @@
 	\end{itemize}
 \end{frame}
 
-\begin{frame}{Thank you}
-	Thanks!
+\begin{frame}{}
+	Thank you for listening.
+
+	\bibliographystyle{iso690.bst}
+	\begin{thebibliography}{1}
+		\bibitem{thesis}
+		Kvapil, Ondřej.
+		\textit{Haskell Dynamic Tracing}.
+		Bachelor's thesis.
+		Czech Technical University in Prague,
+		Faculty of Information Technology, 2021.
+	\end{thebibliography}
 \end{frame}
 
 \end{document}
