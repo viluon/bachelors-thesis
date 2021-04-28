@@ -30,11 +30,12 @@
 \usepackage{booktabs}
 \usepackage[numbers]{natbib}
 \usepackage[htt]{hyphenat}
+\usepackage{xparse,minted}
 
 % custom commands
-\newcommand{\todo}[1]{}%{\textcolor{red}{\textbf{[[#1]]}}}
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{[[#1]]}}}
 \newcommand{\blind}[1][1]{\textcolor{gray}{\Blindtext[#1][1]}}
-\newcommand{\citationNeeded}{}%{\textcolor{red}{\textbf{[citation needed]}}}
+\newcommand{\citationNeeded}{\textcolor{red}{\textbf{[citation needed]}}}
 \newcommand{\hackage}[1]{\texttt{#1}}
 \newcommand{\hsSignature}[1]{\texttt{#1}}
 \newcommand{\hsType}[1]{\texttt{#1}}
@@ -776,6 +777,7 @@ constructing renamed \acrshort{ast}s avoids this issue, at the expense of
 either working with abstract identifiers, or invoking a renaming phase
 manually.
 
+\todo{fix \texttt{\textbackslash citeauthor}}
 As \citeauthor{blog-source-plugins}'s introduction to source plugins shows, the
 costs associated with the construction of syntax trees later in the pipeline
 are not prohibitive\cite{blog-source-plugins}. The \acrshort{ghc}
@@ -813,10 +815,83 @@ combinators, making it easy to create new traversal schemes as compositions of
 existing building blocks.
 
 \subsubsection*{Anatomy of a plugin}
-The structure of our source plugin, which hooks into the pipeline after the
-typechecking phase, is as follows. The field of interest in the \hsType{Plugin}
-type is \hsIdent{typeCheckResultAction}, Neglecting command-line arguments, it
-has the type \hsType{ModSummary -> TcGblEnv -> TcM TcGblEnv}.
+Our source plugin consists of four modules.
+\begin{itemize}
+	\item \hsModule{TracingPlugin}, the entry point of execution and the only
+		exposed module of the package,
+	\item \hsModule{Typechecking}, which contains utilities for typechecking
+		expressions constructed by the plugin,
+	\item \hsModule{Logging}, which defines the tracing functions that we
+		compile into source programs, and
+	\item \hsModule{Rewriting}, where the magic happens. \todo{perhaps
+		unprofessional}
+\end{itemize}
+
+The \hsModule{TracingPlugin} module simply defines and exports a
+\hsType{Plugin} derived from the \hsIdent{defaultPlugin} implementation,
+overriding \hsIdent{typeCheckResultAction}, the function invoked after the
+typechecking phase. Neglecting command-line arguments, our action has the type
+\hsType{ModSummary -> TcGblEnv -> TcM TcGblEnv}. As the type indicates, it
+computes within the typechecking monad (\hsType{TcM}) with access to
+information about the current module (\hsType{ModSummary}), modifying its
+typechecking environment (\hsType{TcGblEnv}). The action is invoked once for
+each compiled module. The typechecking environment is a large data structure
+which describes the top level of a module with 58 fields. Of these, only
+\hsCode{tcg\_binds ::~LHsBinds GhcTc} is interesting to us. The type
+constructor \hsType{LHsBinds} stands roughly for ``located Haskell bindings''
+and represents a collection of all the top-level bindings of a module annotated
+with their source file locations. Our post-typechecking action simply threads
+this field through our rewriting function, which also computes in the
+typechecking monad, and returns the transformed bindings.
+
+The rewriting function, shown in figure \ref{fig:hs-rewrite}, resides in the
+\hsModule{Rewriting} module. It initiates a stateful computation which
+transforms the bindings in a generic manner using the \acrshort{syb} library.
+\begin{figure}[h]
+	\centering
+	\begin{minted}[autogobble]{haskell}
+        rewrite :: LHsBinds GhcTc -> TcM (LHsBinds GhcTc)
+        rewrite binds = fst <$> (`runStateT` initialState)
+                                (everywhereM' trans binds)
+	\end{minted}
+	\caption{The top-level rewriting function, a sole export of the
+	\hsModule{Rewriting} module.}
+	\label{fig:hs-rewrite}
+\end{figure}
+
+Since the \acrshort{ghc} \acrshort{api} abstracts over compiler state using
+(among other types) the \hsType{TcM} monad, the generic transformation
+involving any non-trivial compiler computations needs to be monadic as well.
+This transformation is implemented by the \hsIdent{trans} function (shown in
+fig.  \ref{fig:hs-trans}), which additionally carries a context from the roots
+of the top-level definitions down to their leaves. We combine the stateful
+traversal with the typechecking monad by way of the \hackage{mtl} package,
+itself inspired by \cite{higher-order-polymorphism}, using the \hsType{StateT}
+monad transformer.
+
+\begin{figure}[h]
+	\centering
+	\begin{minted}[autogobble]{haskell}
+        trans :: Typeable a => a -> StateT WrapperState TcM a
+        trans = mkM collectFunInfo `extM` wrapRef `extM` incrementCC
+	\end{minted}
+	\caption{The generic transformation function.}
+	\label{fig:hs-trans}
+\end{figure}
+
+\hsIdent{trans} is applied in a single, top-down traversal of the
+\acrshort{ast}s via a \acrshort{syb} scheme derived from \hsIdent{everywhereM}.
+Ultimately, the function pattern-matches on important structures in the syntax
+trees of top-level bindings in three different ways:
+\begin{enumerate}
+	\item \hsIdent{collectFunInfo} adds information about the current function
+		to the \hsType{WrapperState},
+	\item \hsIdent{wrapRef} wraps argument references with a tracing function, and
+	\item \hsIdent{incrementCC} wraps the right-hand sides of functions with a
+		\hsCode{let} binding, introducing a call counter variable into their
+		scope.
+\end{enumerate}
+
 
 \chapter{Realisation}
 \ldots
@@ -880,7 +955,6 @@ speeds up the edit-compile-run cycle tremendously.
 ...
 
 \bibliography{bbl}
-% TODO get ISO 690 working
 \bibliographystyle{iso690.bst}
 
 \setsecnumdepth{all}

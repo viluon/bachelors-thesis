@@ -23,5 +23,6 @@
 *.pyg
 *.snm
 *.vrb
+*.xdv
 template/
-_minted-talk/
+_minted-*/
