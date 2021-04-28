@@ -29,11 +29,12 @@
 \usepackage{ragged2e}
 \usepackage{booktabs}
 \usepackage[numbers]{natbib}
+\usepackage[htt]{hyphenat}
 
 % custom commands
-\newcommand{\todo}[1]{\textcolor{red}{\textbf{[[#1]]}}}
+\newcommand{\todo}[1]{}%{\textcolor{red}{\textbf{[[#1]]}}}
 \newcommand{\blind}[1][1]{\textcolor{gray}{\Blindtext[#1][1]}}
-\newcommand{\citationNeeded}{\textcolor{red}{\textbf{[citation needed]}}}
+\newcommand{\citationNeeded}{}%{\textcolor{red}{\textbf{[citation needed]}}}
 \newcommand{\hackage}[1]{\texttt{#1}}
 \newcommand{\hsSignature}[1]{\texttt{#1}}
 \newcommand{\hsType}[1]{\texttt{#1}}
@@ -300,11 +301,12 @@ bindings to express sharing. There are also tree and graph data structures for
 heap mapping and a high-level algebraic data type for all Haskell closures,
 complete with their info tables.
 
-\todo{To-do}:
+\todo{to-do
 \begin{itemize}
 	\item explain trade-offs with those that need code changes (typeclass-based)
 	\item explain problems with approaches independent of \acrshort{ghc}
 \end{itemize}
+}
 
 Despite Haskell users' considerable interest in avoiding the implicit delaying
 of computations which the language is notorious for, there are no records of a
@@ -323,7 +325,7 @@ Table \ref{tbl:thunk-manager-comparison} summarizes the surveyed tooling.
 % \begin{savenotes} % support for footnotes within a tabular environment
 \begin{table}[h]
 	\centering
-	\begin{tabularx}{\textwidth}{|| l *{3}{L} c ||}
+	\begin{tabularx}{\textwidth}{|| l *{3}{L} >{\raggedright\arraybackslash}X ||}
 		\hline
 		Tool
 		& Source changes

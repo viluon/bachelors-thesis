@@ -19,4 +19,7 @@
 *.alg
 *.glg
 *.gls
+*.nav
+*.pyg
+*.snm
 template/

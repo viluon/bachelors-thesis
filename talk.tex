@@ -1,0 +1,87 @@
+% arara: xelatex
+% arara: makeglossaries
+% arara: xelatex
+% arara: xelatex
+
+% style inspired by
+% https://github.com/omelkonian/presentations/blob/2c0b2e1f592a8f90797e4997c3ab8785b114f595/%5B2019.08.20%5D%20BitML%20(SRC%20Presentation%20@%20ICFP)/bitml-presentation.tex
+
+\documentclass[aspectratio=169]{beamer}
+\usetheme{metropolis}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage[english]{babel}
+\usepackage{amsmath, amssymb, bm}
+\usepackage{tcolorbox}
+\usepackage[makeroom]{cancel}
+\usepackage{mathpartir}
+\usepackage{minted}
+
+% figure support
+\usepackage{import}
+\usepackage{xifthen}
+\usepackage{pdfpages}
+\usepackage{transparent}
+\newcommand{\incfig}[1]{%
+	\def\svgwidth{\columnwidth}
+	\import{./figures/}{#1.pdf_tex}
+}
+
+% style for tcolorboxes
+\tcbset{plain/.style={colbacktitle=white,coltitle=black,colback=white}}
+\pdfsuppresswarningpagegroup=1
+
+% fonts
+\usepackage{relsize}
+\usepackage[tt=false]{libertine}
+\usepackage[libertine]{newtxmath}
+
+% colours
+\definecolor{CTUBlue}{HTML}{007ac2}
+\setbeamercolor{alerted text}{fg=CTUBlue}
+
+
+\title{Haskell Dynamic Tracing}
+\author{Ondřej Kvapil}
+\institute{Faculty of information technology, Czech technical university in Prague}
+\date{28th April, 2021}
+
+
+\begin{document}
+
+\begin{center}
+	\maketitle
+\end{center}
+
+\begin{frame}{Outline}
+	\begin{itemize}
+		\item Introduction
+		\item Goals of the thesis
+		\item Motivation behind the choice of topic
+		\item Technical terminology and acronyms
+		\item Current state of the solution
+		\item Solution of the problem (expected outcome)
+		\item Conclusion -- a summary of the important points, contributions
+		\item Thanks \& discussion
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Introduction}
+	\begin{itemize}
+		\item Haskell is a \alert{lazy} language \pause
+		\item Delays evaluation of an expression until its value is needed
+	\end{itemize}
+	\begin{minted}{haskell}
+		foo
+	\end{minted}
+\end{frame}
+
+\begin{frame}{Goals}
+	\begin{itemize}
+		\item Key question: how is laziness used in practice?
+	\end{itemize}
+\end{frame}
+
+\end{document}
