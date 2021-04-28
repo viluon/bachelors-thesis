@@ -17,7 +17,7 @@
 \usepackage{tcolorbox}
 \usepackage[makeroom]{cancel}
 \usepackage{mathpartir}
-\usepackage{minted}
+\usepackage{xparse,minted}
 
 % figure support
 \usepackage{import}
@@ -68,20 +68,92 @@
 	\end{itemize}
 \end{frame}
 
-\begin{frame}{Introduction}
+\begin{frame}[fragile]{Introduction}
 	\begin{itemize}
-		\item Haskell is a \alert{lazy} language \pause
-		\item Delays evaluation of an expression until its value is needed
+		\item<1-> Haskell is a \alert{lazy} language
+		\item<2-> Delays evaluation of an expression until its value is needed
+		\item<6-> Shares evaluated subexpressions
 	\end{itemize}
-	\begin{minted}{haskell}
-		foo
-	\end{minted}
+	\begin{overprint}
+		\onslide<3-5>
+		\begin{minted}[autogobble]{haskell}
+			snd :: (Int, Int) -> Int
+			snd (x, y) = y
+		\end{minted}
+		\begin{overprint}
+			\onslide<4>
+			\begin{minted}[autogobble]{haskell}
+				foo :: Int
+				foo = snd (complexComputation, 3)
+			\end{minted}
+			\onslide<5>
+			\begin{minted}[autogobble]{haskell}
+				foo' :: Int
+				foo' = snd (error "oops!", 3)
+			\end{minted}
+		\end{overprint}
+		\onslide<7>
+		\begin{minted}[autogobble]{haskell}
+			let x = complexComputation
+			in  f (x, x)
+		\end{minted}
+	\end{overprint}
 \end{frame}
 
 \begin{frame}{Goals}
 	\begin{itemize}
-		\item Key question: how is laziness used in practice?
+		\item Key question: how is laziness used in practice? \pause
+		\item Develop a \alert{dynamic tracing} framework \pause
+		\item Tool capable of analysing real-world Haskell programs
 	\end{itemize}
+\end{frame}
+
+\begin{frame}{Motivation}
+	\begin{itemize}
+		\item Interesting landscape -- Haskell is heavily used in academia
+			\pause
+		\item Lack of empirical results despite extensive theoretical study
+			\pause
+		\item Laziness has advantages as well as significant downsides
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{State-of-the-art}
+	\begin{itemize}
+		\item Unnecessary laziness leads to \alert{large memory overhead}
+			\pause
+		\item Some tools designed to avoid too much laziness
+			(\texttt{nothunks}, \texttt{BangPatterns}) \pause
+		\item Black-box problem: developers lack insight about the runtime
+			state
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Our solution}
+	\begin{overprint}
+		\onslide<1-3>
+		\begin{itemize}
+			\item<1-3> Compiler plugin for the \alert{Glasgow Haskell Compiler}
+			\item<2-3> Transforms surface syntax of Haskell to add tracing calls
+			\item<3> Traces evaluation of function calls and function arguments
+		\end{itemize}
+		\onslide<4>
+		hi
+	\end{overprint}
+\end{frame}
+
+\begin{frame}{Summary}
+	\begin{itemize}
+		\item Compile-time \alert{rewriting of programs} via a plugin for
+			the Glasgow Haskell Compiler \pause
+		\item Annotation with side-effecting tracing functions \pause
+		\item Compiled program records a trace of relevant events alongside
+			regular output
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Thank you}
+	Thanks!
 \end{frame}
 
 \end{document}

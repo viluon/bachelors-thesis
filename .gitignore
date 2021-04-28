@@ -22,4 +22,6 @@
 *.nav
 *.pyg
 *.snm
+*.vrb
 template/
+_minted-talk/
