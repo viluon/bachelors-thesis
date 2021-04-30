@@ -14,7 +14,5 @@ push @generated_exts, 'glo', 'gls', 'glg';
 push @generated_exts, 'acn', 'acr', 'alg';
 $clean_ext .= ' %R.ist %R.xdy';
 
-$latex = 'latex  %O  --shell-escape %S';
-$pdflatex = 'xelatex  %O  --shell-escape %S';
-$pdf_mode = 5;
-$dvi_mode = $postscript_mode = 0;
+$latex    = 'latex    %O --shell-escape %S';
+$pdflatex = 'pdflatex %O --shell-escape %S';

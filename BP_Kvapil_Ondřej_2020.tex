@@ -1,8 +1,18 @@
-% arara: xelatex
-% arara: makeglossaries
-% arara: xelatex
-% arara: xelatex
+% vim: set tabstop=4 shiftwidth=4
 
+% Neovim setup:
+% let g:vimtex_compiler_latexrun = {
+%	\ 'build_dir' : '',
+%	\ 'options' : [
+%	\   '-verbose-cmds',
+%	\   '-xelatex',
+%	\   '-shell-escape',
+%	\   '-interaction=nonstopmode',
+%	\   '-synctex=1',
+%	\   '-file-line-error',
+%	\   '--latex-args="-shell-escape"',
+%	\ ],
+%	\}
 
 % options:
 % thesis=B bachelor's thesis
@@ -42,7 +52,7 @@
 \newcommand{\hsIdent}[1]{\texttt{#1}}
 \newcommand{\hsModule}[1]{\texttt{#1}}
 \newcommand{\hsTC}[1]{\texttt{#1}}
-\newcommand{\hsCode}[1]{\texttt{#1}}
+\newcommand{\hsCode}[1]{\mintinline[breakbytokenanywhere,breaklines]{haskell}{#1}}
 
 % tabularx customisation
 \newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
@@ -60,6 +70,7 @@
 % correctly?
 \newacronym{ghci}{GHCi}{\acrshort{ghc} interpreter}
 \newacronym{rts}{RTS}{\acrshort{ghc} RunTime System}
+\newacronym{th}{TH}{Template Haskell}
 \newacronym{syb}{SYB}{Scrap Your Boilerplate}
 \newacronym{repl}{REPL}{Read-Eval-Print Loop}
 \newacronym{ast}{AST}{Abstract Syntax Tree}
@@ -837,7 +848,7 @@ information about the current module (\hsType{ModSummary}), modifying its
 typechecking environment (\hsType{TcGblEnv}). The action is invoked once for
 each compiled module. The typechecking environment is a large data structure
 which describes the top level of a module with 58 fields. Of these, only
-\hsCode{tcg\_binds ::~LHsBinds GhcTc} is interesting to us. The type
+\hsCode{tcg_binds :: LHsBinds GhcTc} is interesting to us. The type
 constructor \hsType{LHsBinds} stands roughly for ``located Haskell bindings''
 and represents a collection of all the top-level bindings of a module annotated
 with their source file locations. Our post-typechecking action simply threads
@@ -863,7 +874,7 @@ Since the \acrshort{ghc} \acrshort{api} abstracts over compiler state using
 (among other types) the \hsType{TcM} monad, the generic transformation
 involving any non-trivial compiler computations needs to be monadic as well.
 This transformation is implemented by the \hsIdent{trans} function (shown in
-fig.  \ref{fig:hs-trans}), which additionally carries a context from the roots
+fig. \ref{fig:hs-trans}), which additionally carries a context from the roots
 of the top-level definitions down to their leaves. We combine the stateful
 traversal with the typechecking monad by way of the \hackage{mtl} package,
 itself inspired by \cite{higher-order-polymorphism}, using the \hsType{StateT}
@@ -887,10 +898,107 @@ trees of top-level bindings in three different ways:
 	\item \hsIdent{collectFunInfo} adds information about the current function
 		to the \hsType{WrapperState},
 	\item \hsIdent{wrapRef} wraps argument references with a tracing function, and
-	\item \hsIdent{incrementCC} wraps the right-hand sides of functions with a
-		\hsCode{let} binding, introducing a call counter variable into their
-		scope.
+	\item \hsIdent{incrementCC} wraps the right-hand side of each function with
+		a \hsCode{let} binding, introducing a call counter variable into
+		its scope.
 \end{enumerate}
+
+Each of these building blocks of the complete transformation operates slightly
+differently.
+
+\begin{description}
+	\item[\hsCode{collectFunInfo :: Bind -> StateT WrapperState TcM Bind}]
+		pattern-matches on the various sorts of bindings that can appear in an
+		\acrshort{ast} and extracts the names of the named ones, saving them to
+		the \hsType{WrapperState} context, thus providing the name of the
+		innermost named function to the other transformations.
+	\item[\hsCode{incrementCC :: RHS -> StateT WrapperState TcM RHS}]
+		pattern-matches on right-hand sides of functions and introduces calls
+		to the tracing function \hsIdent{traceEntry} using \acrfull{th}.
+		Calling \hsIdent{traceEntry} with a function name increments a global
+		call counter for that function and returns the counter's current value.
+		\hsIdent{incrementCC} has to introduce a new binding in the scope of
+		the right-hand side so that tracing calls on the \acrshort{rhs} can
+		refer to the call ID.  Since \acrshort{th} cannot lift the Haskell
+		\acrshort{ast} types, the binding has to be constructed in two steps.
+
+		First we read the \hsType{WrapperState} to find out the name of the
+		function we are currently transforming. We construct a \acrshort{th}
+		expression for the application of \hsIdent{traceEntry} to the function
+		name and bind it via a \hsCode{let} binding which assigns the result to
+		a new call counter variable in the scope of a dummy expression (a proxy
+		to \hsIdent{undefined}). Then we typecheck this expression and run a
+		\acrshort{syb} transformation which replaces the dummy subexpression
+		with the original right-hand side. Care must be taken when replacing a
+		node in the typechecked \acrshort{ast} because the typechecker inserts
+		type applications for polymorphic terms such as \hsIdent{undefined}.
+
+		Finally, \hsIdent{incrementCC} also finds the \hsType{Id} of the call
+		counter variable via a \acrshort{syb} query and saves it in the
+		\hsType{WrapperState}.
+	\item[\hsCode{wrapRef :: LExpr -> StateT WrapperState TcM LExpr}]
+		pattern-matches on references to function arguments in function bodies.
+		Its purpose is to transform every argument reference into a call to
+		\hsIdent{traceArg}.
+
+		\todo{fix \texttt{\textbackslash hsCode} overflows}
+
+		To identify references to function arguments, \hsIdent{wrapRef}
+		consults the \hsCode{boundVars :: [Id]} collection. This collection is built
+		independently of the \hsIdent{wrapRef} transformation, since it needs
+		no function-specific information. We rely on the fact that while
+		references to bindings are semantically valid only in local
+		(lexically-scoped) contexts, they have globally unique identifiers.
+		Collecting the identifiers of function arguments is thus a simple task
+		of traversing all the syntactical pattern-matching structures which
+		bind them. We once again leverage \acrshort{syb} to do this without
+		having to pattern-match on the entirety of surface syntax.
+
+		When the reference wrapping transformation identifies a function
+		argument, it constructs a partial application of the \hsIdent{traceArg}
+		tracing function and applies the original binding reference to it. The
+		partially-applied \hsIdent{traceArg} is an unsafe identity function
+		which logs information about the argument's runtime representation to a
+		file.
+
+		Since the overall rewriting operation proceeds in a top-down manner,
+		the \hsIdent{wrapRef} transformation runs into the issue of producing
+		subexpressions it could recursively match on again. This could be
+		avoided by tagging the transformed expressions somehow. Unfortunately,
+		this is difficult to achieve, because the \acrshort{ast} datatypes lack
+		useful typeclass instances for doing so. Crucially, there is no notion
+		of equality on syntax trees and no hashing implementation which would
+		let us store the transformed expressions in a hash set (or at least a
+		set). We work around this limitation by stripping the source location
+		tags from the \acrshort{ast} nodes and checking for their presence
+		before invoking \hsIdent{wrapRef}'s rewriting logic, but we are aware
+		of the problems with this approach. However, issues with error
+		reporting are largely mitigated by the fact that the plugin is invoked
+		after the source program passed the typechecking phase.
+\end{description}
+
+\subsubsection*{Implementation of tracing utilities} \label{sec:tracing-util-impl}
+The tracing functions inserted into the \acrshort{ast} by the rewriting logic
+reside in the \hsModule{Logging} module. They leverage the unsafe IO features
+of Haskell, specifically the standard \hsCode{unsafePerformIO :: IO a -> a}
+from \hsModule{System.IO.Unsafe}, to hide the side-effects of tracing from the
+type system.
+
+\begin{description}
+	\item[\hsCode{traceEntry :: String -> Int}] marks the evaluation entry
+		point of a function. Taking the function's name, it increments its call
+		counter in the background and returns its new value. The call counters
+		are stored in a global map called \hsCode{functionEntries :: IORef (Map
+		String Int)}. The \hsType{IORef} indirection makes
+		\hsIdent{functionEntries} a mutable variable which can be manipulated
+		in the \hsType{IO} monad. The map is explicitly marked with a
+		\mintinline[
+			breakbytokenanywhere,breaklines
+		]{haskell}|{-# NOINLINE #-}|
+		pragma to ensure it is shared between the tracing calls.
+	\item[\hsCode{traceArg :: String -> String -> Int -> a -> a}] indicates a
+		reference to a function argument. \todo{\ldots}
+\end{description}
 
 
 \chapter{Realisation}
@@ -954,7 +1062,7 @@ speeds up the edit-compile-run cycle tremendously.
 \chapter{Conclusion}
 ...
 
-\bibliography{bbl}
+\bibliography{./bbl.bib}
 \bibliographystyle{iso690.bst}
 
 \setsecnumdepth{all}
