@@ -74,6 +74,7 @@
 \newacronym{syb}{SYB}{Scrap Your Boilerplate}
 \newacronym{repl}{REPL}{Read-Eval-Print Loop}
 \newacronym{ast}{AST}{Abstract Syntax Tree}
+\newacronym{csv}{CSV}{Comma-Separated Values}
 \newacronym{api}{API}{Application Programming Interface}
 \newacronym{rhs}{RHS}{Right-Hand Side}
 \newacronym{hpc}{HPC}{Haskell Program Coverage}
@@ -753,7 +754,7 @@ function when the result of the function is under scrutiny.
 We can determine the strictness properties of a transformed function from the
 calls it makes to the tracing utilities. If we record a call to a (transformed)
 top-level function \hsCode{f :: Int -> Int -> Int} defined as \hsCode{f x y =
-\ldots} via \hsIdent{traceEntry} but no calls to \hsIdent{traceArg}, the
+...} via \hsIdent{traceEntry} but no calls to \hsIdent{traceArg}, the
 function makes no use of any of its arguments, and is therefore non-strict in
 both of them. Examples of functions of this behaviour include \hsCode{f x y =
 3}, \hsCode{f x y = undefined}, or \hsCode{f x y = f x y}. Note that the latter
@@ -912,6 +913,7 @@ differently.
 		\acrshort{ast} and extracts the names of the named ones, saving them to
 		the \hsType{WrapperState} context, thus providing the name of the
 		innermost named function to the other transformations.
+
 	\item[\hsCode{incrementCC :: RHS -> StateT WrapperState TcM RHS}]
 		pattern-matches on right-hand sides of functions and introduces calls
 		to the tracing function \hsIdent{traceEntry} using \acrfull{th}.
@@ -936,6 +938,7 @@ differently.
 		Finally, \hsIdent{incrementCC} also finds the \hsType{Id} of the call
 		counter variable via a \acrshort{syb} query and saves it in the
 		\hsType{WrapperState}.
+
 	\item[\hsCode{wrapRef :: LExpr -> StateT WrapperState TcM LExpr}]
 		pattern-matches on references to function arguments in function bodies.
 		Its purpose is to transform every argument reference into a call to
@@ -982,7 +985,10 @@ The tracing functions inserted into the \acrshort{ast} by the rewriting logic
 reside in the \hsModule{Logging} module. They leverage the unsafe IO features
 of Haskell, specifically the standard \hsCode{unsafePerformIO :: IO a -> a}
 from \hsModule{System.IO.Unsafe}, to hide the side-effects of tracing from the
-type system.
+type system. When invoked, these functions append a row of
+\acrshort{csv}-encoded data to a \textit{trace file}, a log of interesting
+events that occurred during the evaluation of a Haskell program, which is
+suitable for further analysis.
 
 \begin{description}
 	\item[\hsCode{traceEntry :: String -> Int}] marks the evaluation entry
@@ -995,9 +1001,42 @@ type system.
 		\mintinline[
 			breakbytokenanywhere,breaklines
 		]{haskell}|{-# NOINLINE #-}|
-		pragma to ensure it is shared between the tracing calls.
+		pragma to ensure it is shared between the tracing calls. Since the
+		\hsType{IORef} constructor returns a reference in the \hsType{IO}
+		monad, we allocate the global variable via \hsIdent{unsafePerformIO}.
+
+		The call counter map is empty at first, individual counters are
+		initialised on-demand. The initialisation of a new call counter and the
+		increment of an existing one are both described concisely by the
+		\hsIdent{insertWith} operation on \hsType{Map}s, which takes a binary
+		function on values, a key, an initial value, and a map, and either
+		initialises the key to the initial value or updates it by applying the
+		binary function to its current value and the initial one. This
+		operation is applied atomically via \hsIdent{atomicModifyIORef'} to
+		accommodate concurrent updates.
+
 	\item[\hsCode{traceArg :: String -> String -> Int -> a -> a}] indicates a
-		reference to a function argument. \todo{\ldots}
+		reference to a function argument. Partially applying this function to
+		the name of the enclosing function, the name of the referenced
+		argument, and the number of the call to the enclosing function leaves
+		an impure identity, which is applied to the actual argument.
+		\hsIdent{traceArg} leverages the \hackage{ghc-heap-view} library to
+		take a peek at the runtime representation of the argument to determine
+		whether it has been evaluated or not.
+
+	\item[\hsCode{logt :: TraceSort -> [String] -> IO ()}] persists a tracing
+		message to a shared file. Calls to this function are not introduced
+		during the rewriting process directly, but both \hsIdent{traceEntry}
+		and \hsIdent{traceArg} call it internally. The function can thus stay
+		in the safe realm of the language, as its type indicates. File system
+		operations in Haskell require a value of type \hsType{Handle} which the
+		\acrshort{rts} uses to manage IO with file system objects. Allocating a
+		handle corresponds to opening a file. Since that is a potentially
+		expensive operation, we store it in an \hsType{IORef}, again created
+		globally with \hsIdent{unsafePerformIO}. \hsIdent{logt} then simply
+		reads the \hsType{IORef}, appends tracing data to the file, and flushes
+		the handle, to avoid problems with lazy IO and data loss when the
+		program exits.
 \end{description}
 
 
