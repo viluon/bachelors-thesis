@@ -148,13 +148,24 @@ Lazy evaluation is a potentially powerful implementation strategy
 for non-strict languages, freeing the programmer to focus on what a program
 means rather than on how it is computed. Laziness naturally accommodates
 user-defined control flow and evaluates only the required subset of a given
-program in a demand-driven manner. However, delayed evaluation makes
-complexity analysis challenging and can lead to hard-to-predict memory
-behaviour. To better understand the trade-offs laziness offers and how it
-is used in practical scenarios, we design a dynamic tracing plugin for
-the \acrlong{ghc}, implement a proof of concept, and demonstrate its
-ability to record crucial information about the use of laziness in simple
-Haskell programs.
+program in a demand-driven manner. The non-strict semantics of the Haskell
+language were a guiding principle which influenced or directly determined many
+of the decisions made at its inception\cite{history-of-haskell}. However, the
+implementation of non-strict features via laziness in \acrshort{ghc} brings
+many pitfalls which Haskell programmers need to deal with. Automatic avoidance
+of unnecessary thunk allocations is conservative\citationNeeded: if
+\acrshort{ghc} is unable to prove the strictness of a function in an argument
+by static strictness analysis, the function will remain lazy, often leading to
+pathological memory behaviour at runtime.
+
+\todo{bridge this gap}
+
+This fight against the semantics is detrimental to the developer experience of
+the language. The question arises whether the benefits of laziness outweigh the
+toll it takes on the programmer. To answer this question, the runtime behaviour
+of lazy features needs to be understood. As a first step towards that
+understanding, we design a dynamic tracing tool capable of capturing
+information about the runtime behaviour of non-strict functions.
 
 
 \setsecnumdepth{all}
@@ -169,14 +180,14 @@ computations.
 \todo{rewrite the following (repetitive use of ``although'', laziness is only
 an implementation technique)}
 
-Although necessary for non-strictness as required by the Haskell
-spec\citationNeeded, laziness leads to many issues with runtime behaviour of
-Haskell programs. The accumulation of thunks at runtime is a frequent cause of
-pathological memory behaviour and unpredictable performance. There is a number
-of libraries and tools which aim to help the Haskell programmer inspect the
-runtime state of the Haskell heap, force the evaluation of thunks known to be
-forced by the program at a later point anyway, and avoid their creation
-altogether for certain expressions.
+Although necessary for an efficient implementation of non-strict semantics as
+required by the Haskell spec\cite{haskell2010}, laziness leads to many issues with
+runtime behaviour of Haskell programs. The accumulation of thunks at runtime is
+a frequent cause of pathological memory behaviour and unpredictable
+performance. There is a number of libraries and tools which aim to help the
+Haskell programmer inspect the runtime state of the Haskell heap, force the
+evaluation of thunks known to be forced by the program at a later point anyway,
+and avoid their creation altogether for certain expressions.
 
 Among the surveyed approaches to the inspection and management of thunks were
 the following:
@@ -321,18 +332,7 @@ complete with their info tables.
 \end{itemize}
 }
 
-Despite Haskell users' considerable interest in avoiding the implicit delaying
-of computations which the language is notorious for, there are no records of a
-large-scale study of the use of laziness in practice akin to
-\cite{emp-study-laziness-r}. The tool with a feature set closest to what is
-necessary for a comprehensive analysis of the practical use of laziness is
-likely \hackage{ghc-heap-view}, which allows the user to interactively inspect
-the heap objects and look inside thunks using \acrshort{ghci}. However, the
-package primarily provides a rich library interface. It does not implement a
-tracing mode, which would facilitate collection of laziness-relevant
-information during the execution of entire programs.
-
-\subsection{Summary} \label{sec:summary}
+\subsection*{Summary} \label{sec:summary}
 Table \ref{tbl:thunk-manager-comparison} summarizes the surveyed tooling.
 
 % \begin{savenotes} % support for footnotes within a tabular environment
@@ -392,10 +392,22 @@ Table \ref{tbl:thunk-manager-comparison} summarizes the surveyed tooling.
 \end{table}
 % \end{savenotes}
 
+Despite Haskell users' considerable interest in avoiding the implicit delaying
+of computations which the language is notorious for, there are no records of a
+large-scale study of the use of laziness in practice akin to
+\cite{emp-study-laziness-r}. The tool with a feature set closest to what is
+necessary for a comprehensive analysis of the practical use of laziness is
+likely \hackage{ghc-heap-view}, which allows the user to interactively inspect
+the heap objects and look inside thunks using \acrshort{ghci}. However, the
+package primarily provides a rich library interface. It does not implement a
+tracing mode, which would facilitate collection of laziness-relevant
+information during the execution of entire programs.
+
+
 \section{Existing profilers} \label{sec:existing-profilers}
 \todo{...}
 
-\subsection{Haskell Program Coverage} \label{sec:hpc}
+\subsection*{Haskell Program Coverage} \label{sec:hpc}
 Haskell Program Coverage\cite{hpc-paper} is (unsurprisingly) a code coverage
 tool for Haskell. Similarly to Hat, \acrshort{hpc} has a source-to-source mode
 of operation but additionally offers tight integration with \acrshort{ghc} and
@@ -425,52 +437,22 @@ about their execution context and timing.
 
 
 \section{The Glasgow Haskell Compiler} \label{sec:ghc}
-\todo{Explain that several previous approaches had a direct influence on the
-compiler. \acrshort{ghc} now has \acrshort{hpc}-specific features, compiler plugins, which
-supersede source-to-source transformations (strengthening the monopoly but
-simplifying implementation and streamlining the process), and a codebase that's
-increasingly amenable to various extensions via the trees that grow pattern,
-\hsIdent{Tickish}, etc.}
-...
+\acrshort{ghc} itself could be considered the most widespread Haskell tool. Its
+plethora of language extensions\cite{ghc-language-extensions}, which range from
+simple syntactical utilities to complex type system add-ons, lets the
+programmer customise the set of features provided by the language.
 
-\subsection{Compiler plugins} \label{sec:compiler-plugins}
-...
-
-
-\chapter{Analysis and design} \label{sec:analysis-design}
-\todo{what is analysis?}
-...
-
-\section{Analysis} \label{sec:analysis}
-\begin{itemize}
-	\item the core question: is laziness worth the hassle?
-	\item original approach by modifying \acrshort{ghci}
-	\item reuse the implementation of breakpoints, effectively implementing
-		fairly clean hooks (bearing a slight resemblance to how the R tracer
-		works)
-	\item build on \texttt{Tickish}
-\end{itemize}
-
-\subsection{The problem} \label{sec:the-problem}
-\todo{really? ``The problem''?}
-
-The non-strict semantics of the Haskell language were a guiding principle which
-influenced or directly determined many of the decisions made at its
-inception\cite{history-of-haskell}. However, the implementation of non-strict
-features via laziness in \acrshort{ghc} brings many pitfalls which Haskell
-programmers need to deal with. Automatic avoidance of unnecessary thunk
-allocations is conservative\citationNeeded: if \acrshort{ghc} is unable to
-prove the strictness of a function in an argument by static strictness
-analysis, the function will remain lazy, often leading to pathological memory
-behaviour at runtime.
+A simple and robust method of preventing undesired laziness is the language
+extension \texttt{BangPatterns}, which introduces a new pattern syntax
+\hsCode{!pat} for forcing an expression to \acrshort{whnf} before
+pattern-matching it against \hsIdent{pat} \todo{we may need a
+\texttt{\textbackslash hsPat}}. For short functions and clear algorithms which
+do not benefit from pervasive laziness it is often very easy to simply annotate
+certain patterns in the program with exclamation marks and observe a
+reduction in memory consumption.
 
 \todo{it's not just bang patterns though, the strictness annotations in
 datatypes are a part of Haskell 2010!}
-A simple and popular method of dealing with undesired laziness is the language
-extension \texttt{BangPatterns}\citationNeeded\todo{cit. both for the popularity
-and for the extension itself}. \texttt{BangPatterns} introduce a new syntax for
-forcing an expression to \acrshort{whnf} when pattern-matching on
-it\todo{clarification needed}.
 
 \todo{explain that bang patterns are often only added after something goes
 	wrong and the compiler doesn't help with choosing where to place them (or
@@ -480,14 +462,32 @@ it\todo{clarification needed}.
 	memory leak doesn't introduce another). Note also that Idris, a language
 	inspired by Haskell, chose purity but not laziness.}
 
-This fight against the semantics is detrimental to the developer experience of
-the language. The question arises whether the benefits of laziness outweigh the
-toll it takes on the programmer. To answer this question, the runtime behaviour
-of lazy features needs to be understood. As a first step towards that
-understanding, we design a dynamic tracing tool capable of capturing
-information about the runtime behaviour of non-strict functions.
 
-\subsection{Approach} \label{sec:approach}
+\todo{Explain that several previous approaches had a direct influence on the
+	compiler. \acrshort{ghc} now has \acrshort{hpc}-specific features, compiler
+	plugins, which supersede source-to-source transformations (strengthening
+	the monopoly but simplifying implementation and streamlining the process),
+	and a codebase that's increasingly amenable to various extensions via the
+	trees that grow pattern, \hsIdent{Tickish}, etc.}
+...
+
+\subsection{Compiler plugins} \label{sec:compiler-plugins}
+...
+
+
+\chapter{Analysis and design} \label{sec:analysis-design}
+
+
+\section{Overview} \label{sec:analysis-overview}
+\begin{itemize}
+	\item add a proper problem statement
+	\item summarise possible approaches
+	\item detail \acrshort{ghci}
+	\item detail compiler plugins
+	\item build on \texttt{Tickish}
+\end{itemize}
+
+\section{Approach} \label{sec:approach}
 \begin{itemize}
 	\item core question: how is laziness used in practice?
 	\item to understand that, we have to find out whether functions are strict and
@@ -521,10 +521,9 @@ about runtime structures over the execution of a Haskell program: modify the
 program, or modify the compiler. The former would involve rewriting the source
 code, while the latter
 
-The purpose of the
-project thus dictates use of features which violate some of the abstractions
-provided by the language\todo{does it really? We're interested in GHCi as
-well...}.
+The purpose of the project thus dictates use of features which violate some of
+the abstractions provided by the language\todo{does it really? We're interested
+in GHCi as well...}.
 
 Understanding the use of laziness at runtime requires insight about runtime
 structures that are otherwise transparent to the Haskell programmer. A key
@@ -534,11 +533,11 @@ have been evaluated or not, we need to observe state that is typically hidden
 from a Haskell program.
 
 Once we have the power to inspect the runtime representations of values, we
-need to use it to determine the strictness of functions. A function \hsCode{f}
-is strict in an argument \hsCode{a} if \hsCode{a} has to be evaluated whenever
-\hsCode{f a} is evaluated.
+need to use it to determine the strictness of functions. A function \hsIdent{f}
+is strict in an argument \hsIdent{a} if \hsIdent{a} has to be evaluated
+whenever \hsCode{f a} is evaluated.
 
-\subsection{The \acrshort{ghci} approach} \label{sec:ghci-approach}
+\section{Using \acrshort{ghci}} \label{sec:using-ghci}
 Taking inspiration from \cite{emp-study-laziness-r}, the original
 implementation plan was to work with \acrfull{ghci}. The bytecode compiler and
 interpreter lack support for certain \acrshort{ghc} language extensions, namely
@@ -554,7 +553,7 @@ features. \acrshort{ghci} already implements breakpoints, which pause the
 execution of a Haskell program running in a separate thread and pass messages
 to the controlling Haskell thread.
 
-\subsubsection{\acrshort{ghci}: a primer}
+\subsection*{\acrshort{ghci}: a primer}
 \acrshort{ghci} is an interactive interface built on \acrshort{ghc}'s bytecode
 compilation pipeline and the bytecode interpreter of the \acrshort{rts}.
 \acrshort{ghci} offers a read-eval-print loop popular in other programming
@@ -570,7 +569,7 @@ The following sections will introduce each of the building blocks from which
 \acrshort{ghci} is composed, starting with an overview of how they fit
 together.
 
-\subsubsection{The life of an interpreted expression}
+\subsection*{The life of an interpreted expression}
 The user's expression entered at the \acrshort{repl}'s prompt is fed through a
 modified \acrshort{ghc} pipeline, as \acrshort{ghci} expects Haskell
 expressions, not top-level definitions. This modified pipeline culminates in
@@ -610,7 +609,7 @@ directly or first invoking various \acrshort{ghci} commands to load modules,
 print types, kinds, and documentation, browse the contents of modules and
 perform other tasks.
 
-\subsubsection{Bytecode generation}
+\subsection*{Bytecode generation}
 The bytecode facilities of \acrshort{ghc} involve a detour from the typical
 sequence of steps performed to transform Haskell sources all the way to a form
 suitable for linking or execution. After desugaring, the program is transformed
@@ -630,7 +629,7 @@ The bytecode format comprises 67 instructions
 \todo{describe the instructions in a table}
 \todo{stack/heap checks prevent (uh, or maybe react to?) respective overflows}
 
-\subsubsection{The bytecode interpreter}
+\subsection*{The bytecode interpreter}
 The interpreter which \acrshort{ghci} relies on is a part of the
 \acrshort{rts}. Its primary workhorse is the \texttt{interpretBCO} function
 which handles closure evaluation, unboxed returns, function application, and
@@ -639,7 +638,7 @@ such as application of machine-code functions, it returns to the scheduler.
 
 Interpretation works simply by case analysis on the current instruction.
 
-\subsubsection{The debugger}
+\subsection*{The debugger}
 A notable feature of the tool is the \acrshort{ghci} debugger, which allows the
 programmer to place breakpoints on certain expressions in their code. The
 interpreter then pauses execution when it is about to evaluate an expression
@@ -671,10 +670,10 @@ put \texttt{BRK\_FUN} instructions at the very start of bytecode objects and
 the \acrshort{tso} flag ensures that a just-visited breakpoint is not stopped
 at again.
 
-\subsubsection{The user interface}
+\subsection*{The user interface}
 \ldots
 
-\subsection{The compiler plugin approach}
+\section{The compiler plugin approach}
 To produce useful tracing output, a dynamic tracing framework must capture
 interesting events during a program's evaluation and relate them to one
 another. In particular, the evaluation of function arguments must be clearly
@@ -688,9 +687,9 @@ in the order of the trace events.
 
 It is this function-call-specific state that becomes difficult to express
 without high-level information about the program structure at hand, as was the
-case with \nameref{sec:ghci-approach}\todo{lowercase}.
+case with \nameref{sec:using-ghci}\todo{lowercase}.
 
-\subsubsection*{Adding state}
+\subsection*{Adding state}
 \todo{A manual introduction of state into the program is rather trivial\ldots}
 
 Fortunately, function-call-specific state can be easily introduced into the
@@ -770,7 +769,7 @@ argument if another argument matches a predicate (and being non-strict in that
 argument otherwise) is what makes the interpretation of traces of nested
 functions tricky.
 
-\subsubsection*{Rewriting the \acrshort{ast}}
+\subsection*{Rewriting the \acrshort{ast}}
 Armed with the necessary tracing functions and a plan on how to apply them, we
 move on to the problem of syntax tree transformation. The \texttt{GhcPlugins}
 module\cite{hkg-ghcplugins} of the \acrshort{ghc} \acrshort{api} includes the
@@ -826,7 +825,7 @@ library is built using powerful generalisations of folding and a number of
 combinators, making it easy to create new traversal schemes as compositions of
 existing building blocks.
 
-\subsubsection*{Anatomy of a plugin}
+\subsection*{Anatomy of a plugin}
 Our source plugin consists of four modules.
 \begin{itemize}
 	\item \hsModule{TracingPlugin}, the entry point of execution and the only
@@ -980,7 +979,7 @@ differently.
 		after the source program passed the typechecking phase.
 \end{description}
 
-\subsubsection*{Implementation of tracing utilities} \label{sec:tracing-util-impl}
+\subsection*{Implementation of tracing utilities} \label{sec:tracing-util-impl}
 The tracing functions inserted into the \acrshort{ast} by the rewriting logic
 reside in the \hsModule{Logging} module. They leverage the unsafe IO features
 of Haskell, specifically the standard \hsCode{unsafePerformIO :: IO a -> a}
@@ -1025,22 +1024,22 @@ suitable for further analysis.
 		whether it has been evaluated or not.
 
 	\item[\hsCode{logt :: TraceSort -> [String] -> IO ()}] persists a tracing
-		message to a shared file. Calls to this function are not introduced
+		message to the trace file. Calls to this function are not introduced
 		during the rewriting process directly, but both \hsIdent{traceEntry}
 		and \hsIdent{traceArg} call it internally. The function can thus stay
 		in the safe realm of the language, as its type indicates. File system
 		operations in Haskell require a value of type \hsType{Handle} which the
 		\acrshort{rts} uses to manage IO with file system objects. Allocating a
 		handle corresponds to opening a file. Since that is a potentially
-		expensive operation, we store it in an \hsType{IORef}, again created
-		globally with \hsIdent{unsafePerformIO}. \hsIdent{logt} then simply
-		reads the \hsType{IORef}, appends tracing data to the file, and flushes
-		the handle, to avoid problems with lazy IO and data loss when the
-		program exits.
+		expensive operation, we store the handle in another non-in\-line\-able
+		\hsType{IORef}, again created globally with \hsIdent{unsafePerformIO}.
+		\hsIdent{logt} then simply reads the \hsType{IORef}, appends tracing
+		data to the file, and flushes the handle, to avoid problems with lazy
+		IO and prevent data loss when the program exits.
 \end{description}
 
 
-\chapter{Realisation}
+\chapter{Implementation}
 \ldots
 
 \section{Development environment}
