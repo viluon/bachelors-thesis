@@ -451,8 +451,26 @@ do not benefit from pervasive laziness it is often very easy to simply annotate
 certain patterns in the program with exclamation marks and observe a
 reduction in memory consumption.
 
-\todo{it's not just bang patterns though, the strictness annotations in
-datatypes are a part of Haskell 2010!}
+The language extension shares the exclamation mark syntax with a feature of
+Haskell 2010, strictness flags\cite{haskell2010-strictness-flags}. While
+\texttt{BangPatterns} add optional strictness to pattern matching, strictness
+flags do the same \todo{find a better word} for data types. Unfortunately,
+proper use of this flexibility hinges on the programmer's knowledge of how is
+the particular piece of code going to be used. While it is good practice to
+request the early evaluation of values which will have to be forced anyway,
+sprinkling strictness annotations throughout library code in attempts to
+prevent space leaks may lead to unintentional sacrifice of the benefits of
+laziness. Additionally, since these strict evaluation facilities only force
+thunks to \acrshort{whnf}, the evaluated objects may still retain large delayed
+expressions.  The ability to excise thunks from a Haskell value completely was
+the core motivation for the development of the \hackage{deepseq} library.
+
+The lack of programmer insight into how a piece of code is used in a program
+and what strictness properties it has is a major developer experience issue.
+Some of the discussed debugging tools help ameliorate the problem, but
+\acrshort{ghc} itself includes a tool especially suited to doing so
+\todo{wording?}. \todo{cost-centre and ticky-ticky profiling}
+
 
 \todo{explain that bang patterns are often only added after something goes
 	wrong and the compiler doesn't help with choosing where to place them (or
