@@ -24,5 +24,7 @@
 *.snm
 *.vrb
 *.xdv
+*.run.xml
+*.bcf
 template/
 _minted-*/
