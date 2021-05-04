@@ -53,7 +53,7 @@
 \newcommand{\hsModule}[1]{\texttt{#1}}
 \newcommand{\hsTC}[1]{\texttt{#1}}
 \newcommand{\hsCode}[1]{\mintinline[
-	breakbytokenanywhere,breaklines,escapeinside=||,mathescape=true
+	breakbytokenanywhere,breaklines,escapeinside=&&,mathescape=true
 ]{haskell}{#1}}
 
 % tabularx customisation
@@ -75,6 +75,8 @@
 \newacronym{th}{TH}{Template Haskell}
 \newacronym{llvm}{LLVM}{Low-Level Virtual Machine}
 \newacronym{syb}{SYB}{Scrap Your Boilerplate}
+\newacronym{adt}{ADT}{Algebraic Data Type}
+\newacronym{gadt}{GADT}{Generalised Algebraic Data Type}
 \newacronym{repl}{REPL}{Read-Eval-Print Loop}
 \newacronym{ast}{AST}{Abstract Syntax Tree}
 \newacronym{csv}{CSV}{Comma-Separated Values}
@@ -512,14 +514,34 @@ types. The basic algorithm for making a data type extensible is as follows:
 \begin{enumerate}
 	\item index the data type of choice by a type parameter $\xi$, called the
 		\textit{extension descriptor},
-
-		\hsCode{data D = ...} $\longrightarrow$ \hsCode{data D |\xi| = ...}
-	\item add one new constructor $Extra$ to the data type,
-	\item create a \textit{type family} $X_{Con}$ -- a function from types to
-		types -- for every constructor $Con$ of the data type (including for
-		$Extra$),
-	\item add one field of type $X_{Con}~\xi$ to every constructor $Con$ of the
-		data type (again including to $Extra$).
+		\begin{center}
+			\hsCode{data D = ...} \\
+			$\downarrow$ \\
+			\hsCode{data D &$\xi$& = ...}
+		\end{center}
+	\item add one new constructor $\mathrm{Extra}$ to the data type,
+		\begin{center}
+			\hsCode{data D &$\xi$& = C&$_1$& ... | ... | C&$_n$& ...} \\
+			$\downarrow$ \\
+			\hsCode{data D &$\xi$& = C&$_1$& ... | ... | C&$_n$& ... | Extra}
+		\end{center}
+	\item create a \textit{type family} $X_{\mathrm{Con}}$ -- a function from types to
+		types -- for every constructor $\mathrm{Con}$ of the data type (including for
+		$\mathrm{Extra}$),
+		\begin{center}
+			\hsCode{type family X&$_{C_1}$& &$\quad\xi$&} \\
+			$\vdots$ \\
+			\hsCode{type family X&$_{C_n}$& &$\quad\xi$&} \\
+			\hsCode{type family X&$_{\mathrm{Extra}}$& &$\xi$&}
+		\end{center}
+	\item add one field of type $X_{\mathrm{Con}}~\xi$ to every constructor $\mathrm{Con}$ of the
+		data type (again including to $\mathrm{Extra}$).
+		\begin{center}
+			\hsCode{data D &$\xi$& = C&$_1$& ... | ... | Extra} \\
+			$\downarrow$ \\
+			\hsCode{data D &$\xi$& = C&$_1$& (X&$_{C_1}$& &$\xi
+				$&) ... | ... | Extra (X&$_{\mathrm{Extra}}$& &$\xi$&)}
+		\end{center}
 \end{enumerate}
 
 This short refactoring enables the programmer to both restrict the use of
@@ -531,13 +553,40 @@ to the existing constructors, again depending on the particular type $\xi$.
 To define the original data type without extensions in terms of its extensible
 variant, it suffices to fix the extension descriptor to some type, e.g.  to
 \hsType{Void}, and omit any equations for the type families. Doing so leaves
-the type level applications of the shape $X_{Con}~\text{\textit{Void}}$
+the type level applications of the shape $X_{\mathrm{Con}}~\mathrm{Void}$
 irreducible and thus isomorphic to any empty type, with the only valid value
 being $\bot$ (such as \hsIdent{undefined}). In effect, the extension fields of
 constructors cannot be pattern-matched against, because they have no
-constructors. The extension constructor \textit{Extra} can still be matched,
+constructors. The extension constructor $\mathrm{Extra}$ can still be matched,
 but cannot hold any data. It can be hidden completely by not exporting it from
 the module of definition.
+
+For extensions, it suffices to add type family instances -- the analogy of
+function equations for type functions -- which resolve a particular assignment
+of the extension descriptor to the desired type of the extension.
+
+As presented, the Trees that Grow transformation leaves much to be desired from
+a usage perspective: we have to pass a \hsIdent{void} or \hsIdent{undefined}
+for unused extension fields during construction, these extensions also clutter
+the pattern matches, and matching on both constructors and multiple fields
+added via extensions is clunky at best. These grievances can be solved by the
+use of a brilliantly convenient syntactical feature of Haskell called
+\textit{pattern synonyms}\cite{pattern-synonyms}. These let the programmer
+abstract over patterns and so define reusable interfaces to the data types
+extended via the Trees that Grow transformation, hiding the structural
+complexity of the underlying flexible data type.
+
+For an in-depth description of the design pattern, its generalisations to
+multiple type parameters, existentials, \acrshort{gadt}s, hierarchies of
+extension descriptors, as well as relations to generic programming,
+typeclasses, and for many other practically useful details, we recommend the
+publication introducing the idea\cite{trees-that-grow}.
+
+\subsubsection*{Trees in \acrshort{ghc}}
+Although the Trees that Grow pattern is not used universally throughout the
+\acrshort{ghc} project, its concepts play an important role in many of the core
+data types.
+
 
 \subsection{Strictness features}
 A simple and robust method of preventing undesired laziness is the language
@@ -750,7 +799,7 @@ That module is loaded by the compiler instance and \todo{uhhh...}
 
 When evaluating an expression, the UI forks a new thread to perform evaluation
 independently of the interface. This ensures that exceptions raised during
-evaluation of an expression don't crash \acrshort{ghci}. The UI forwards
+evaluation of an expression do not crash \acrshort{ghci}. The UI forwards
 exception handlers appropriately to ensure this is the case. The two threads
 communicate via \textit{mutable variables}, or \hsType{MVar}s. These are
 concurrency primitives from the \hsModule{Control.Concurrent.MVar} module which
