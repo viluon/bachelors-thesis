@@ -52,7 +52,9 @@
 \newcommand{\hsIdent}[1]{\texttt{#1}}
 \newcommand{\hsModule}[1]{\texttt{#1}}
 \newcommand{\hsTC}[1]{\texttt{#1}}
-\newcommand{\hsCode}[1]{\mintinline[breakbytokenanywhere,breaklines]{haskell}{#1}}
+\newcommand{\hsCode}[1]{\mintinline[
+	breakbytokenanywhere,breaklines,escapeinside=||,mathescape=true
+]{haskell}{#1}}
 
 % tabularx customisation
 \newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
@@ -69,8 +71,9 @@
 % TODO: isn't there a better glossary package that handles references
 % correctly?
 \newacronym{ghci}{GHCi}{\acrshort{ghc} interpreter}
-\newacronym{rts}{RTS}{\acrshort{ghc} RunTime System}
+\newacronym{rts}{RTS}{Run-Time System}
 \newacronym{th}{TH}{Template Haskell}
+\newacronym{llvm}{LLVM}{Low-Level Virtual Machine}
 \newacronym{syb}{SYB}{Scrap Your Boilerplate}
 \newacronym{repl}{REPL}{Read-Eval-Print Loop}
 \newacronym{ast}{AST}{Abstract Syntax Tree}
@@ -78,12 +81,9 @@
 \newacronym{api}{API}{Application Programming Interface}
 \newacronym{rhs}{RHS}{Right-Hand Side}
 \newacronym{hpc}{HPC}{Haskell Program Coverage}
-% TODO this should probs go into a glossary instead?
-\newacronym{stg}{STG}{Spineless Tag\-less G-machine, an abstract machine based
-on graph reduction\cite{stg-classic}. \acrshort{ghc} compiles the Core language
-to STG instructions, machine code is generated from the STG representation.}
-% TODO this as well (the acronyms should only list the unabbreviated form, not
-% a description of what these are)
+\newacronym{stg}{STG}{Shared Term Graph}
+% TODO this should probs go into a glossary instead? (the acronyms should only
+% list the unabbreviated form, not a description of what these are)
 \newacronym{gnu}{GNU}{GNU's Not Unix, a Unix-like operating system}
 \newacronym{hls}{HLS}{Haskell Language Server}
 \newacronym{bco}{BCO}{Byte Code Object}
@@ -440,8 +440,106 @@ about their execution context and timing.
 \acrshort{ghc} itself could be considered the most widespread Haskell tool. Its
 plethora of language extensions\cite{ghc-language-extensions}, which range from
 simple syntactical utilities to complex type system add-ons, lets the
-programmer customise the set of features provided by the language.
+programmer customise the set of features provided by the language. We briefly
+discuss the internal organisation of the project and in the process explain
+those basics of the Haskell language which will come up in later chapters.
 
+\subsection{Architectural overview}
+Although a thorough and authoritative -- if a little dated -- description of
+the architecture of the compiler is available in the aptly named, freely
+accessible Architecture of Open Source Applications\cite{arch-ghc}, we include
+a summary of the key points relevant to our work as well as to the discussed
+technicalities. \acrshort{ghc} is a capable optimising compiler for the Haskell
+language and represents its most prominent implementation. The project consists
+of three major components: the compiler itself, the boot libraries (a
+collection of core libraries \acrshort{ghc} itself depends on), and the
+\acrfull{rts}, a large library of C code linked into every compiled program.
+\acrshort{rts} provides low-overhead runtime support for facilities abstracted
+over by Haskell code, such as garbage collection, exception handling, or
+concurrency primitives.
+
+The compiler turns Haskell source code all the way to object and interface
+files\footnote{
+	These describe high-level information about a compiled module,
+	including data type definitions and in\-line\-able functions.
+}. The process is organised in several phases outlined below, these together
+form the \textit{compiler pipeline}.
+
+\begin{description}
+	\item[Parse] Construction of abstract syntax trees. Lexical and
+		syntactical errors are reported here.
+	\item[Rename] Resolution of identifiers into fully qualified names, to
+		uniquely identify what each name corresponds to. Undefined references
+		are reported here. Note that the renaming phase re\-associates operator
+		applications in the \acrshort{ast} formed during parsing, because
+		Haskell allows specifying the precedence and associativity of infix
+		operators, but their properties are only available after renaming.
+	\item[Typecheck] Verification of the program's type-correctness. Type
+		checking annotates all binders in the program with type signatures.
+		Type errors are reported here.
+	\item[Desugar] Conversion from Haskell surface syntax to the much smaller
+		intermediate language, Core.
+	\item[Simplify] Optimisation of the Core language, including demand
+		analysis, \hsCode{let} floating, dead-code elimination, common
+		subexpression elimination, constructor specialisation, and others.
+	\item[Convert to \acrshort{stg}] Translation of Core to shared term graph
+		form, suitable for code generation.
+	\item[Code generation] Generation of machine code or \acrshort{llvm} bit
+		code for further processing by the \acrshort{llvm} toolchain.
+\end{description}
+
+As the program flows through the pipeline, the invariants it conforms to
+gradually change. The codebase reflects this by passing different data types
+from phase to phase. The types of the nodes of the surface syntax tree are
+indexed by an uninhabited type \hsType{GhcPass}, which is itself indexed by the
+\hsType{Pass} data type (i.e. \hsType{GhcPass} has kind \hsType{Pass -> *}),
+lifted to the type level. Together, the \hsType{GhcPass} types represent the
+various phases of the compiler frontend, from parsing to renaming to type
+checking. The type level distinction between phases complicates the type
+signatures of almost all functions in the pipeline, but the choice comes with
+important benefits. Firstly, indexing \acrshort{ast} types by the
+\hsType{GhcPass} types provides a compile-time guarantee that nodes from
+different phases cannot be mixed unintentionally. Moreover, the phase type
+parameter is a requirement for the adoption of the Tress that Grow
+pattern\cite{trees-that-grow}, a powerful functional design pattern which
+enables extensions of both sum and product types at various phases.
+
+\subsubsection*{Trees that Grow}
+Let us take a small detour to explain the influential concept of the design
+pattern, invented\footnote{-- or, at your discretion, discovered --}
+specifically to add extensibility to \acrshort{ghc}'s abstract syntax data
+types. The basic algorithm for making a data type extensible is as follows:
+\begin{enumerate}
+	\item index the data type of choice by a type parameter $\xi$, called the
+		\textit{extension descriptor},
+
+		\hsCode{data D = ...} $\longrightarrow$ \hsCode{data D |\xi| = ...}
+	\item add one new constructor $Extra$ to the data type,
+	\item create a \textit{type family} $X_{Con}$ -- a function from types to
+		types -- for every constructor $Con$ of the data type (including for
+		$Extra$),
+	\item add one field of type $X_{Con}~\xi$ to every constructor $Con$ of the
+		data type (again including to $Extra$).
+\end{enumerate}
+
+This short refactoring enables the programmer to both restrict the use of
+certain constructors and introduce new constructors depending on the extension
+descriptor $\xi$ by manipulating the definitions of the type families rather
+than the original data type itself. It also lets the programmer add new fields
+to the existing constructors, again depending on the particular type $\xi$.
+
+To define the original data type without extensions in terms of its extensible
+variant, it suffices to fix the extension descriptor to some type, e.g.  to
+\hsType{Void}, and omit any equations for the type families. Doing so leaves
+the type level applications of the shape $X_{Con}~\text{\textit{Void}}$
+irreducible and thus isomorphic to any empty type, with the only valid value
+being $\bot$ (such as \hsIdent{undefined}). In effect, the extension fields of
+constructors cannot be pattern-matched against, because they have no
+constructors. The extension constructor \textit{Extra} can still be matched,
+but cannot hold any data. It can be hidden completely by not exporting it from
+the module of definition.
+
+\subsection{Strictness features}
 A simple and robust method of preventing undesired laziness is the language
 extension \texttt{BangPatterns}, which introduces a new pattern syntax
 \hsCode{!pat} for forcing an expression to \acrshort{whnf} before
@@ -526,7 +624,7 @@ to our knowledge no such tool exists at the time of writing.
 
 In theory, the \acrlong{ghc}'s optimisations are advanced enough to compile the
 majority of Haskell code fairly efficiently, without space leaks or allocation
-slow-downs, while enabling the greater flexibility, code-reuse, and abstraction
+slow-downs, while enabling the greater flexibility, code reuse, and abstraction
 of a non-strict language. However, inefficiencies introduced to support
 unnecessary laziness which are small enough not to cause substantial problems
 could hide in the compiled program. It is a part of the motivation behind this
@@ -662,9 +760,9 @@ effectively implement concurrent, mutable
 It can be safely shared across threads and supports operations
 \hsIdent{takeMVar} and \hsIdent{putMVar}. The former operation extracts the
 value stored in an \hsType{MVar}, leaving the variable empty if a value is
-present. If the variable is empty, the operation blocks. The converse\todo{is
-this the right word?} operation \hsIdent{putMVar} blocks on a full variable and
-fills it with a value as soon as it is empty.
+present. If the variable is empty, the operation blocks. The complementary
+operation \hsIdent{putMVar} blocks on a full variable and fills it with a value
+as soon as it is empty.
 
 Two \hsType{MVar}s play an important role in the design of \acrshort{ghci},
 \hsIdent{statusMVar} and \hsIdent{breakMVar}. These variables form a
