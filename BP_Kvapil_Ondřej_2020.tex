@@ -41,6 +41,12 @@
 \usepackage[numbers]{natbib}
 \usepackage[htt]{hyphenat}
 \usepackage{xparse,minted}
+\usepackage{tikz}
+
+\usetikzlibrary{
+	shapes.multipart, arrows, positioning
+}
+
 
 % custom commands
 \newcommand{\todo}[1]{\textcolor{red}{\textbf{[[#1]]}}}
@@ -71,14 +77,17 @@
 % TODO: isn't there a better glossary package that handles references
 % correctly?
 \newacronym{ghci}{GHCi}{\acrshort{ghc} interpreter}
-\newacronym{rts}{RTS}{Run-Time System}
+\newacronym{rts}{RTS}{Runtime System}
+\newacronym{stm}{STM}{Software Transactional Memory}
 \newacronym{th}{TH}{Template Haskell}
+\newacronym{os}{OS}{Operating System}
 \newacronym{llvm}{LLVM}{Low-Level Virtual Machine}
 \newacronym{syb}{SYB}{Scrap Your Boilerplate}
 \newacronym{adt}{ADT}{Algebraic Data Type}
 \newacronym{gadt}{GADT}{Generalised Algebraic Data Type}
 \newacronym{repl}{REPL}{Read-Eval-Print Loop}
 \newacronym{ast}{AST}{Abstract Syntax Tree}
+\newacronym{ir}{IR}{Intermediate Representation}
 \newacronym{csv}{CSV}{Comma-Separated Values}
 \newacronym{api}{API}{Application Programming Interface}
 \newacronym{rhs}{RHS}{Right-Hand Side}
@@ -460,6 +469,7 @@ collection of core libraries \acrshort{ghc} itself depends on), and the
 over by Haskell code, such as garbage collection, exception handling, or
 concurrency primitives.
 
+\subsubsection{Compiler front end}
 The compiler turns Haskell source code all the way to object and interface
 files\footnote{
 	These describe high-level information about a compiled module,
@@ -582,21 +592,107 @@ extension descriptors, as well as relations to generic programming,
 typeclasses, and for many other practically useful details, we recommend the
 publication introducing the idea\cite{trees-that-grow}.
 
-\subsubsection*{Trees in \acrshort{ghc}}
 Although the Trees that Grow pattern is not used universally throughout the
 \acrshort{ghc} project, its concepts play an important role in many of the core
 data types.
 
+\subsubsection*{Compiler back end}
+The back end of the compiler starts with the desugaring phase, which translates
+the resolved and type checked surface syntax into an \acrfull{ir} called Core.
+The Haskell language contains many redundancies and shorthands designed to make
+the syntax more user-friendly. The \acrshort{ast} data types comprise hundreds
+of constructors. In contrast, Core only has about 10 syntactical forms. It is a
+typed lambda calculus with a much simpler type system than Haskell's, a variant
+of System F extended with type equality coercions\cite{system-fc}.
+
+Although Core is typed, the compiler only type checks Core programs if the user
+explicitly asks it to do so. Core types exist mostly to validate the internal
+consistency of the compiler, all type errors in user code are reported in the
+last phase of the front end.
+
+Most of the optimisation passes \acrshort{ghc} performs are local
+semantics-pre\-serv\-ing transformations of Core (Core-to-Core passes) which
+are applied in many iterations during invocations of the
+simplifier\cite{cmtary-core2core}. These local rewritings improve intermediate
+code between applications of heavier optimisations.
+
+The optimised Core is transformed to a slightly different representation
+(\acrshort{stg}) which corresponds to programs of an abstract graph reduction
+machine (\cite{stg-classic}, later revised in \cite{stg2}). It is translated
+again to the low-level imperative language \texttt{Cmm}, a dialect of C$--$,
+before entering one of the final stages of the code generation phase. A
+successful run of the compiler typically terminates in \acrshort{ghc}'s
+built-in native code back\-end, but the \texttt{Cmm} representation can be
+translated to \acrshort{llvm} bit code and additionally processed by the
+\acrshort{llvm} pipeline.
+
+A notable detour in the compiler is the bytecode compilation pipeline, which
+does not involve optimisations, the conversion to \acrshort{stg}, or any later
+passes. Instead, the separate bytecode generator translates Core directly to
+bytecode instructions for execution by the \acrshort{rts} interpreter.
+\todo{add a link to the MR changing this}
+
+
+\subsubsection*{\acrlong{rts}}
+The runtime system consists of about 50,000 lines of C and C$--$ code. It
+implements all the functionality Haskell programs require that is not compiled
+into the programs themselves, many of which involves low-level interactions
+with abstractions provided by the operating system. The major components of the
+\acrshort{rts} are the following:
+\begin{itemize}
+	\item A storage manager, including a block allocation layer, which
+		abstracts over memory management, and a parallel generational garbage
+		collector,
+	\item a user-space scheduler which multiplexes lightweight Haskell threads
+		onto heavy \acrshort{os} threads,
+	\item primitives for exception handling, concurrency, and built-in
+		operations,
+	\item a bytecode interpreter and a dynamic linker for \acrshort{ghci},
+	\item support for \acrfull{stm}, and
+	\item many other features\cite{cmtary-rts}.
+\end{itemize}
+
+The storage manager defines the data structures which represent Haskell values
+at runtime. Since the understanding of these representations is crucial for the
+
+\begin{figure}[h]
+	\centering
+	\begin{tikzpicture}[
+		memory slab/.style={
+			rectangle, draw,
+		},
+	]
+		\node[
+			memory slab, rectangle split, rectangle split parts = 2,
+			rectangle split horizontal, align = center
+		] (obj)
+			 at (0, 0) {
+				Header
+				\nodepart[text width = 70pt]{second} Payload
+			};
+		\node[
+			memory slab, rectangle split, rectangle split parts = 2,
+			align = center
+		] (header)
+			 at (1, -2) {
+				Info table
+				\nodepart{second} Entry code
+			};
+		\draw[->] (obj.one south) -- (x-|y) -- (header.one split west);
+	\end{tikzpicture}
+	\caption{The memory layout of a heap object}
+	\label{fig:heap-object}
+\end{figure}
 
 \subsection{Strictness features}
-A simple and robust method of preventing undesired laziness is the language
-extension \texttt{BangPatterns}, which introduces a new pattern syntax
+Besides \todo{...} A simple and robust method of preventing undesired laziness is the
+language extension \texttt{BangPatterns}, which introduces a new pattern syntax
 \hsCode{!pat} for forcing an expression to \acrshort{whnf} before
 pattern-matching it against \hsIdent{pat} \todo{we may need a
 \texttt{\textbackslash hsPat}}. For short functions and clear algorithms which
 do not benefit from pervasive laziness it is often very easy to simply annotate
-certain patterns in the program with exclamation marks and observe a
-reduction in memory consumption.
+certain patterns in the program with exclamation marks and observe a reduction
+in memory consumption.
 
 The language extension shares the exclamation mark syntax with a feature of
 Haskell 2010, strictness flags\cite{haskell2010-strictness-flags}. While
