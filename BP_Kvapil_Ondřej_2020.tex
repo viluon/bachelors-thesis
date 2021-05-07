@@ -92,7 +92,7 @@
 \newacronym{api}{API}{Application Programming Interface}
 \newacronym{rhs}{RHS}{Right-Hand Side}
 \newacronym{hpc}{HPC}{Haskell Program Coverage}
-\newacronym{stg}{STG}{Shared Term Graph}
+\newacronym{stg}{STG}{Spineless Tagless G-machine}
 % TODO this should probs go into a glossary instead? (the acronyms should only
 % list the unabbreviated form, not a description of what these are)
 \newacronym{gnu}{GNU}{GNU's Not Unix, a Unix-like operating system}
@@ -469,7 +469,7 @@ collection of core libraries \acrshort{ghc} itself depends on), and the
 over by Haskell code, such as garbage collection, exception handling, or
 concurrency primitives.
 
-\subsubsection{Compiler front end}
+\subsubsection*{Compiler front end}
 The compiler turns Haskell source code all the way to object and interface
 files\footnote{
 	These describe high-level information about a compiled module,
@@ -506,7 +506,7 @@ from phase to phase. The types of the nodes of the surface syntax tree are
 indexed by an uninhabited type \hsType{GhcPass}, which is itself indexed by the
 \hsType{Pass} data type (i.e. \hsType{GhcPass} has kind \hsType{Pass -> *}),
 lifted to the type level. Together, the \hsType{GhcPass} types represent the
-various phases of the compiler frontend, from parsing to renaming to type
+various phases of the compiler front end, from parsing to renaming to type
 checking. The type level distinction between phases complicates the type
 signatures of almost all functions in the pipeline, but the choice comes with
 important benefits. Firstly, indexing \acrshort{ast} types by the
@@ -616,12 +616,12 @@ are applied in many iterations during invocations of the
 simplifier\cite{cmtary-core2core}. These local rewritings improve intermediate
 code between applications of heavier optimisations.
 
-The optimised Core is transformed to a slightly different representation
-(\acrshort{stg}) which corresponds to programs of an abstract graph reduction
-machine (\cite{stg-classic}, later revised in \cite{stg2}). It is translated
-again to the low-level imperative language \texttt{Cmm}, a dialect of C$--$,
-before entering one of the final stages of the code generation phase. A
-successful run of the compiler typically terminates in \acrshort{ghc}'s
+The optimised Core is transformed to a slightly different representation which
+corresponds to programs of an abstract graph reduction machine, the
+\acrfull{stg} (\cite{stg-classic}, later revised in \cite{stg2}). It is
+translated again to the low-level imperative language \texttt{Cmm}, a dialect
+of C$--$, before entering one of the final stages of the code generation phase.
+A successful run of the compiler typically terminates in \acrshort{ghc}'s
 built-in native code back\-end, but the \texttt{Cmm} representation can be
 translated to \acrshort{llvm} bit code and additionally processed by the
 \acrshort{llvm} pipeline.
@@ -632,11 +632,19 @@ passes. Instead, the separate bytecode generator translates Core directly to
 bytecode instructions for execution by the \acrshort{rts} interpreter.
 \todo{add a link to the MR changing this}
 
+\subsubsection*{Compiler plugins}
+Both the front end and the back end of the compiler can be modified and
+extended in a modular manner with \textit{compiler plugins}, which come in two
+flavours: core plugins on the back end and source plugins on the front
+end\cite{ghc-source-plugins}. The former act on the Core language and are best
+suited for optimisations, while high level analyses, language extensions and
+code generation are better handled by the latter. We will discuss source
+plugins in more detail in chapter~\ref{sec:analysis-design}.
 
 \subsubsection*{\acrlong{rts}}
 The runtime system consists of about 50,000 lines of C and C$--$ code. It
 implements all the functionality Haskell programs require that is not compiled
-into the programs themselves, many of which involves low-level interactions
+into the programs themselves, much of which involves low-level interactions
 with abstractions provided by the operating system. The major components of the
 \acrshort{rts} are the following:
 \begin{itemize}
@@ -654,6 +662,9 @@ with abstractions provided by the operating system. The major components of the
 
 The storage manager defines the data structures which represent Haskell values
 at runtime. Since the understanding of these representations is crucial for the
+understanding of the implementation of laziness in \acrshort{ghc} and the
+trade-offs involved, we will discuss the relevant parts of the storage manager
+here.
 
 \begin{figure}[h]
 	\centering
@@ -665,27 +676,94 @@ at runtime. Since the understanding of these representations is crucial for the
 		\node[
 			memory slab, rectangle split, rectangle split parts = 2,
 			rectangle split horizontal, align = center
-		] (obj)
-			 at (0, 0) {
-				Header
-				\nodepart[text width = 70pt]{second} Payload
-			};
+		] (obj) at (0, 0) {
+			Header
+			\nodepart[text width = 70pt]{second} Payload
+		};
 		\node[
 			memory slab, rectangle split, rectangle split parts = 2,
 			align = center
-		] (header)
-			 at (1, -2) {
-				Info table
-				\nodepart{second} Entry code
-			};
-		\draw[->] (obj.one south) -- (x-|y) -- (header.one split west);
+		] (header) at (1, -2) {
+			Info table
+			\nodepart{second} Entry code
+		};
+		% for some reason, just (a) |- (b) doesn't work, even though (a) -| (b) works fine...
+		\draw[->] (obj.one south) -- (obj.one south |- header.one split west) -- (header.one split west);
 	\end{tikzpicture}
-	\caption{The memory layout of a heap object}
-	\label{fig:heap-object}
+	\caption{The memory layout of a generic closure.}
+	\label{fig:closure-layout}
 \end{figure}
 
+\textit{Closures} -- the runtime objects of programs compiled with
+\acrshort{ghc} -- all share the same basic representation shown in figure
+\ref{fig:closure-layout}. The \textit{header} contains primarily a pointer to
+the metadata of a closure, though it also includes a profiling header if
+profiling is enabled. The \textit{payload} of a closure usually contains data
+not known at compile time. The \textit{info table} identifies the type of the
+closure (data constructor, function, thunk, \ldots) and informs the garbage
+collector about the pointer\-hood of the payload. The \textit{entry code} is
+the code executed when \textit{entering}, i.e. evaluating the closure. For
+example, the entry code of functions represents the body of the function.
+
+The \acrshort{stg} uses a number of registers, a heap, and a stack which stores
+function arguments and continuations. Closures can also reside statically in
+the compiled object code of a Haskell program. During execution, any heap
+allocations are preceded by a \textit{heap check}, which invokes garbage
+collection if not enough space is left on the heap. Similarly, when code needs
+to push values onto the stack, it performs a \textit{stack check} and grows the
+stack if necessary.
+
+All the dynamic allocations are managed by the garbage collector, including
+stack frames and lightweight threads.
+
+Here \todo{ew, improve the wording here} are a few of the most important
+closure types:
+
+\begin{description}
+	\item[Function closures] represent Haskell functions. When entered,
+		functions assume that all their arguments are present at the top of the
+		stack. This is known as the \textit{eval/apply} evaluation model.
+
+		The payload of function closures carries (pointers to) the free
+		variables of the function's body.
+
+	\item[Thunks] represent unevaluated expressions. When entered, the
+		corresponding expression is evaluated and the closure is replaced with
+		an indirection to the resulting value. This ensures that thunks are not
+		evaluated multiple times, as subsequent attempts at evaluation will
+		instead enter the indirection which will simply return the existing
+		value.
+
+	\item[Indirections] are proxies to other closures. Their payload is simply
+		a single pointer to the target object. To reduce the overhead of
+		sharing, indirections are removed by the garbage collector and never
+		outlive the youngest generation.
+
+	\item[Black holes] are indirections under evaluation. \todo{concurrent
+		update}
+
+	\item[Data constructors] carry their arguments (fields) as payload, ordered
+		such that pointers come first. Their entry code returns immediately to
+		the topmost stack frame (a constructor itself is always evaluated,
+		although its arguments may not be).
+
+	\item[Thread state objects] represent lightweight Haskell threads,
+		including their stacks. Since a \acrshort{tso} is simply a closure, it
+		is managed by the garbage collector, just like any other heap object.
+		The garbage collector sends exceptions to blocked threads which become
+		unreachable.
+\end{description}
+
+
 \subsection{Strictness features}
-Besides \todo{...} A simple and robust method of preventing undesired laziness is the
+The compilation pipeline, the \acrshort{rts}, and base libraries are the
+products of substantial amounts of effort invested over more than thirty years,
+but they are not the only contributions of the \acrshort{ghc} project.
+\acrshort{ghc} often serves as the incubator of new language features --
+including those directly related to managing the amount of laziness in a
+program. We dedicate this subsection to an overview thereof.
+
+A simple and robust method of preventing undesired laziness is the
 language extension \texttt{BangPatterns}, which introduces a new pattern syntax
 \hsCode{!pat} for forcing an expression to \acrshort{whnf} before
 pattern-matching it against \hsIdent{pat} \todo{we may need a
@@ -783,12 +861,8 @@ thesis to lay the groundwork necessary for their detection.
 	trees that grow pattern, \hsIdent{Tickish}, etc.}
 ...
 
-\subsection{Compiler plugins} \label{sec:compiler-plugins}
-...
-
 
 \chapter{Analysis and design} \label{sec:analysis-design}
-
 
 \section{Overview} \label{sec:analysis-overview}
 \begin{itemize}
