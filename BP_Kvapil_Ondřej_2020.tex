@@ -22,6 +22,8 @@
 % hidelinks remove colour boxes around hyperlinks
 
 \documentclass[thesis=B,english]{FITthesis}[2019/12/23]
+% TODO ✨remove from final build! ✨
+\overfullrule=5pt
 
 \usepackage[utf8]{inputenc} % LaTeX source encoded as UTF-8
 % \usepackage[latin2]{inputenc} % LaTeX source encoded as ISO-8859-2
@@ -1059,6 +1061,8 @@ Interpretation works simply by case analysis on the current instruction.
 
 \subsection*{The debugger}
 \todo{this needs an update now that the previous subsections were rewritten}
+\todo{don't forget to mention the feature where you can print the runtime
+values of things while paused at a breakpoint}
 
 A notable feature of \acrshort{ghci} is its debugger, which allows the
 programmer to place breakpoints on certain expressions in their code. The
@@ -1091,8 +1095,15 @@ put \texttt{BRK\_FUN} instructions at the very start of bytecode objects and
 the \acrshort{tso} flag ensures that a just-visited breakpoint is not stopped
 at again.
 
-\subsection*{The user interface}
-\ldots
+\subsection*{Trace\-points}
+Our design for dynamic tracing via \acrshort{ghci} builds on the existing
+functionality of breakpoints. We introduce \textit{trace\-points}, a simpler
+variant of breakpoints which uses the communication channel between the server
+and \texttt{eval} threads to pause evaluation at every breakable expression.
+
+\subsection*{Summary}
+\todo{\ldots}
+
 
 \section{The compiler plugin approach}
 To produce useful tracing output, a dynamic tracing framework must capture
@@ -1108,7 +1119,9 @@ in the order of the trace events.
 
 It is this function-call-specific state that becomes difficult to express
 without high-level information about the program structure at hand, as was the
-case with \nameref{sec:using-ghci}\todo{lowercase}.
+case with the \acrshort{ghci} approach described in section
+\ref{sec:using-ghci} \todo{maybe ``the previous section?'' Susceptible to
+problems when reordering though}.
 
 \subsection*{Adding state}
 \todo{A manual introduction of state into the program is rather trivial\ldots}
@@ -1192,7 +1205,7 @@ functions tricky.
 
 \subsection*{Rewriting the \acrshort{ast}}
 Armed with the necessary tracing functions and a plan on how to apply them, we
-move on to the problem of syntax tree transformation. The \texttt{GhcPlugins}
+move on to the problem of syntax tree transformation. The \hsModule{GhcPlugins}
 module\cite{hkg-ghcplugins} of the \acrshort{ghc} \acrshort{api} includes the
 necessary functions to hook into the compiler pipeline. A source plugin can
 choose to modify the syntax tree at three different stages: right after
@@ -1215,10 +1228,10 @@ costs associated with the construction of syntax trees later in the pipeline
 are not prohibitive\cite{blog-source-plugins}. The \acrshort{ghc}
 \acrshort{api} exports high-level functions which let the plugin author take
 trees from parsed to renamed to typechecked in only a few lines of code.
-Moreover, the plugin author can use the quasi\-quoting\cite{th-quasiquoting}
-features of Template Haskell\cite{th-classic} to greatly simplify the
-construction of expressions. The quasi\-quoting facilities even manage
-references to definitions in the scope of the plugin's source code
+Moreover, the plugin author can use the quasi\-quoting
+features\cite{th-quasiquoting} of Template Haskell\cite{th-classic} to greatly
+simplify the construction of expressions. The quasi\-quoting facilities even
+manage references to definitions in the scope of the plugin's source code
 automatically. Common patterns in the expressions created by the plugin can be
 included as regular top-level definitions in the plugin's module or in a module
 the plugin depends on and spliced into the syntax tree. With these high-level
@@ -1245,6 +1258,68 @@ functions in all appropriately typed fields of a nested data structure. The
 library is built using powerful generalisations of folding and a number of
 combinators, making it easy to create new traversal schemes as compositions of
 existing building blocks.
+
+
+\chapter{Implementation}
+In this chapter, we confront some of the development-related issues that tend
+to arise when working with the \acrshort{ghc} project, in the hope of easing
+future endeavours. The description of the problems we encountered in our work
+relates to features of the compiler which did not fit in earlier chapters.
+Next, we discuss the implementation details of a compiler source plugin we
+developed for dynamic tracing and present the results of the implementation.
+
+
+\section{Working with \acrshort{ghc}}
+
+The \acrshort{ghc} codebase is a large and complicated collection of source
+files written in a number of programming languages, primarily Haskell and
+C\cite{arch-ghc}. The ever-evolving project is supported by a custom build
+system called Hadrian\cite{hadrian}, itself written in Haskell, which
+bootstraps the self-hosting compiler in several steps. To build \acrshort{ghc},
+an appropriate version of \acrshort{ghc} has to be installed already. The
+installed compiler is referred to as the \textbf{stage 0} compiler \todo{fix
+the formatting of stages}. Hadrian uses the \textbf{stage 0} compiler to build
+first the Hadrian build system and with it the \textbf{stage 1} compiler, which
+is a freshly built \acrshort{ghc} linked against the \textbf{stage 0}
+\hackage{base} library. The \textbf{stage 1} compiler is subsequently used to
+build the core libraries from scratch. It is then utilised again to build the
+\textbf{stage 2} compiler, which is linked against the freshly built
+\hackage{base}. The \textbf{stage 2} compiler constitutes a complete build of
+\acrshort{ghc} from source code. There is an optional follow-up step, where the
+\textbf{stage 2} compiler builds a \textbf{stage 3} compiler, which is useful
+for profiling \acrshort{ghc} while building \acrshort{ghc}.
+
+The first step to working on the project after obtaining the source code is
+setting up the build system. Since specific releases of \acrshort{ghc} require
+specific \textbf{stage 0} compilers as the project quickly adapts to use new
+language extensions, the management of \acrshort{ghc} versions on a Unix-like
+system with a system-wide package manager can be difficult. To ease the
+management of installed versions and enable quick switching between them, the
+\texttt{ghcup} tool\cite{ghcup} has been developed. \todo{this will need some
+more citations} \texttt{ghcup} lets the \acrshort{ghc} developer quickly
+install and switch between the releases of not only \acrshort{ghc} itself, but
+also Cabal, the Haskell build system and dependency manager, and the
+\acrfull{hls}, an \acrshort{lsp}-compliant language server providing
+Haskell-specific editor integration features.
+
+There are several supported approaches to building \acrshort{ghc}, as the
+compiler previously used a build system based on \acrshort{gnu} Make (before
+switching to Hadrian) and the old Make build system is still being phased out.
+Additionally, the build tool of the programmer's choice can be combined with a
+Docker or Nix -assisted set-up, simplifying the installation of other
+dependencies required for the build process.
+
+\todo{how do we say ``let's not pick Make tho?''}
+\todo{ways and flavours!}
+After the initial build, the \textbf{stage 1} compiler can be \textit{frozen}
+by passing a flag to the build system on subsequent invocations. This prevents
+rebuilding the \textbf{stage 1} compiler every time a source file changes, which
+speeds up the edit-compile-run cycle tremendously.
+
+\todo{\ldots}
+
+\section{Dynamic tracing with plugins}
+\todo{\ldots}
 
 \subsection*{Anatomy of a plugin}
 Our source plugin consists of four modules.
@@ -1458,62 +1533,6 @@ suitable for further analysis.
 		data to the file, and flushes the handle, to avoid problems with lazy
 		IO and prevent data loss when the program exits.
 \end{description}
-
-
-\chapter{Implementation}
-\ldots
-
-\section{Development environment}
-\ldots
-
-\section{Building \acrshort{ghc}}
-
-The \acrshort{ghc} codebase is a large and complicated collection of source
-files written in a number of programming languages, primarily Haskell and
-C\cite{arch-ghc}. The ever-evolving project is supported by a custom build
-system called Hadrian\citationNeeded, itself written in Haskell, which
-bootstraps the self-hosting compiler in several steps. To build \acrshort{ghc},
-an appropriate version of \acrshort{ghc} has to be installed already. The
-installed compiler is referred to as the \textbf{stage 0} compiler \todo{fix
-the formatting of stages}. Hadrian uses the \textbf{stage 0} compiler to build
-first the Hadrian build system and with it the \textbf{stage 1} compiler, which
-is a freshly built \acrshort{ghc} linked against the \textbf{stage 0}
-\hackage{base} library. The \textbf{stage 1} compiler is subsequently used to
-build the core libraries from scratch. It is then utilised again to build the
-\textbf{stage 2} compiler, which is linked against the freshly built
-\hackage{base}. The \textbf{stage 2} compiler constitutes a complete build of
-\acrshort{ghc} from source code. There is an optional follow-up step, where the
-\textbf{stage 2} compiler builds a \textbf{stage 3} compiler, which is useful
-for profiling \acrshort{ghc} while building \acrshort{ghc}.
-
-The first step to working on the project after obtaining the source code is
-setting up the build system. Since specific releases of \acrshort{ghc} require
-specific \textbf{stage 0} compilers as the project quickly adapts to use new
-language extensions, the management of \acrshort{ghc} versions on a Unix-like
-system with a system-wide package manager can be difficult. To ease the
-management of installed versions and enable quick switching between them, the
-\texttt{ghcup} tool\cite{ghcup} has been developed. \todo{this will need some
-more citations} \texttt{ghcup} lets the \acrshort{ghc} developer quickly
-install and switch between the releases of not only \acrshort{ghc} itself, but
-also Cabal, the Haskell build system and dependency manager, and the
-\acrfull{hls}, an \acrshort{lsp}-compliant language server providing
-Haskell-specific editor integration features.
-
-There are several supported approaches to building \acrshort{ghc}, as the
-compiler previously used a build system based on \acrshort{gnu} Make (before
-switching to Hadrian) and the old Make build system is still being phased out.
-Additionally, the build tool of the programmer's choice can be combined with a
-Docker or Nix -assisted set-up, simplifying the installation of other
-dependencies required for the build process.
-
-\todo{how do we say ``let's not pick Make tho?''}
-\todo{ways and flavours!}
-After the initial build, the \textbf{stage 1} compiler can be \textit{frozen}
-by passing a flag to the build system on subsequent invocations. This prevents
-rebuilding the \textbf{stage 1} compiler every time a source file changes, which
-speeds up the edit-compile-run cycle tremendously.
-
-...
 
 
 
