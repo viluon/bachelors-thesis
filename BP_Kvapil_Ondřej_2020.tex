@@ -1270,24 +1270,57 @@ developed for dynamic tracing and present the results of the implementation.
 
 
 \section{Working with \acrshort{ghc}}
+While obtaining and compiling a local copy of \acrshort{ghc} source code is
+unnecessary for compiler plugin development, a programmer inexperienced with
+the internals of the project may find it helpful to occasionally peek under the
+hood of its \acrshortpl{api}. Obtaining a working copy is also a prerequisite
+for forking\todo{term?} the project -- we did so when evaluating the
+\acrshort{ghci} approach.
 
 The \acrshort{ghc} codebase is a large and complicated collection of source
-files written in a number of programming languages, primarily Haskell and
-C\cite{arch-ghc}. The ever-evolving project is supported by a custom build
-system called Hadrian\cite{hadrian}, itself written in Haskell, which
-bootstraps the self-hosting compiler in several steps. To build \acrshort{ghc},
-an appropriate version of \acrshort{ghc} has to be installed already. The
-installed compiler is referred to as the \textbf{stage 0} compiler \todo{fix
-the formatting of stages}. Hadrian uses the \textbf{stage 0} compiler to build
-first the Hadrian build system and with it the \textbf{stage 1} compiler, which
-is a freshly built \acrshort{ghc} linked against the \textbf{stage 0}
-\hackage{base} library. The \textbf{stage 1} compiler is subsequently used to
-build the core libraries from scratch. It is then utilised again to build the
-\textbf{stage 2} compiler, which is linked against the freshly built
-\hackage{base}. The \textbf{stage 2} compiler constitutes a complete build of
-\acrshort{ghc} from source code. There is an optional follow-up step, where the
-\textbf{stage 2} compiler builds a \textbf{stage 3} compiler, which is useful
-for profiling \acrshort{ghc} while building \acrshort{ghc}.
+files written primarily in Haskell and C\cite{arch-ghc}. The ever-evolving
+project is supported by a custom build system called Hadrian\cite{hadrian},
+itself written in Haskell, introduced to replace \acrshort{gnu} Make.
+Additionally, the build tool of the programmer's choice can be combined with a
+Docker or Nix -assisted set-up, simplifying the installation of other
+dependencies required for the build process. We do not recommend using Make:
+Hadrian was developed to address many issues with Make, including its excessive
+complexity and poor performance.  Tools for simplifying library management
+(particularly Nix and Docker) are compelling choices for projects with larger
+teams. However, we found it significantly easier to set up a ``native''
+development environment. Both Nix and Docker suffer from substantial disk usage
+overheads. Our experience in developing a Docker container for \acrshort{ghc}
+8.10.2 indicates that large portions of the native set-up have to be replicated
+in the container.
+
+For example, correctly configuring \acrshort{hls} to load the \acrshort{ghc}
+source code is quite an involved task, eased by the \texttt{hie-bios}
+project\cite{gh-hie-bios} which ships with Hadrian (as a part of the
+\acrshort{ghc} source tree). However, compiling \acrshort{ghc} inside the
+container results in \texttt{hie-bios} reporting include paths specific to the
+container's file\-system to the language server, which in turn breaks all of
+its functionality. One possible solution is installing the \acrshort{hls}
+inside the Docker container instead and letting the code editor of choice talk
+to the containerised process. In comparison, a native set-up with
+\texttt{ghcup} is far easier and comes with fewer surprises along the way,
+which is why we would recommend it for a project similar in scale to ours.
+
+\subsection*{Build process}
+The build system bootstraps the self-hosting compiler in
+several steps. To build \acrshort{ghc}, an appropriate version of
+it has to be already installed. The compiler provided by the system is referred
+to as the \textbf{stage 0} compiler \todo{fix the formatting of stages}.
+\acrshort{ghc} comes with build scripts which use the \textbf{stage 0} compiler
+to build first the Hadrian build system. Once Hadrian has been built, the user
+invokes it to build the \textbf{stage 1} compiler, which is a \acrshort{ghc}
+linked against the \textbf{stage 0} \hackage{base} library. The \textbf{stage
+1} compiler is subsequently used to build the core libraries from scratch. It
+is then utilised again to build the \textbf{stage 2} compiler, which is linked
+against the freshly built \hackage{base}. The \textbf{stage 2} compiler
+constitutes a complete build of \acrshort{ghc} from source code. There is an
+optional follow-up step, where the \textbf{stage 2} compiler builds a
+\textbf{stage 3} compiler, which is useful for profiling \acrshort{ghc} while
+building \acrshort{ghc}.
 
 The first step to working on the project after obtaining the source code is
 setting up the build system. Since specific releases of \acrshort{ghc} require
@@ -1302,14 +1335,7 @@ also Cabal, the Haskell build system and dependency manager, and the
 \acrfull{hls}, an \acrshort{lsp}-compliant language server providing
 Haskell-specific editor integration features.
 
-There are several supported approaches to building \acrshort{ghc}, as the
-compiler previously used a build system based on \acrshort{gnu} Make (before
-switching to Hadrian) and the old Make build system is still being phased out.
-Additionally, the build tool of the programmer's choice can be combined with a
-Docker or Nix -assisted set-up, simplifying the installation of other
-dependencies required for the build process.
 
-\todo{how do we say ``let's not pick Make tho?''}
 \todo{ways and flavours!}
 After the initial build, the \textbf{stage 1} compiler can be \textit{frozen}
 by passing a flag to the build system on subsequent invocations. This prevents
