@@ -44,6 +44,10 @@
 \usepackage[numbers]{natbib}
 \usepackage[htt]{hyphenat}
 \usepackage{xparse,minted}
+% taken from
+% https://tex.stackexchange.com/questions/161124/how-to-make-a-minted-code-listing-centered-on-a-page
+\RecustomVerbatimEnvironment{Verbatim}{BVerbatim}{}
+
 \usepackage{tikz}
 \usepackage{tcolorbox}
 \tcbuselibrary{breakable}
@@ -168,8 +172,50 @@ generic programming}
 \chapter{Introduction} \label{sec:intro}
 Conventional programming languages of all paradigms use -- almost equivocally
 -- eager evaluation strategies. Non-strict semantics have far-reaching
-implications on the design of a language\cite{haskell-is-pure} and pose many
-implementation challenges.
+implications on the design of a language\cite{haskell-is-pure} and comes with
+both benefits in expressiveness and implementation challenges.
+
+\begin{listing}[h]
+	\centering
+	\begin{minted}[autogobble]{haskell}
+		snd :: (Int, Int) -> Int
+		snd (x, y) = y
+	\end{minted}
+	\caption{The right projection of an ordered pair of integers, non-strict in
+	the first component of the pair.}
+	\label{lst:snd}
+\end{listing}
+
+\begin{listing}[h]
+	\centering
+	\begin{minted}[autogobble]{haskell}
+		foo :: Int
+		foo = snd (complexComputation, 3)
+	\end{minted}
+	\caption{Non-strict semantics avoids unnecessary computations.}
+	\label{lst:foo}
+\end{listing}
+
+\begin{listing}[h]
+	\centering
+	\begin{minted}[autogobble]{haskell}
+		foo' :: Int
+		foo' = snd (error "oops!", 3)
+	\end{minted}
+	\label{lst:foo'}
+	\caption{Non-strictness can avoid runtime errors.}
+\end{listing}
+
+\begin{listing}[h]
+	\centering
+	\begin{minted}[autogobble]{haskell}
+		let x = complexComputation
+		in  x `par` f x
+	\end{minted}
+	\caption{\acrshort{ghc} shares delayed computations and their results, even
+	when evaluating in parallel.}
+	\label{lst:let-x}
+\end{listing}
 
 Lazy evaluation is a potentially powerful implementation strategy
 for non-strict languages, freeing the programmer to focus on what a program
@@ -362,8 +408,8 @@ complete with their info tables.
 \subsection*{Summary} \label{sec:summary}
 Table \ref{tbl:thunk-manager-comparison} summarizes the surveyed tooling.
 
-% \begin{savenotes} % support for footnotes within a tabular environment
-\begin{table}[h]
+\begin{table}\noindent
+\begin{minipage}{\textwidth} % support for footnotes within a tabular environment
 	\centering
 	\begin{tabularx}{\textwidth}{|| l *{3}{L} >{\raggedright\arraybackslash}X ||}
 		\hline
@@ -416,8 +462,8 @@ Table \ref{tbl:thunk-manager-comparison} summarizes the surveyed tooling.
 	\caption{An overview of existing solutions to thunk discovery and laziness
 	debugging.}
 	\label{tbl:thunk-manager-comparison}
+\end{minipage}
 \end{table}
-% \end{savenotes}
 
 Despite Haskell users' considerable interest in avoiding the implicit delaying
 of computations which the language is notorious for, there are no records of a
@@ -1387,10 +1433,11 @@ then take a step back and cover building and applying the plugin.
 
 Our goal is to transform the following code into a variant that produces a
 recording of laziness-related events during evaluation. Take the naive version
-of the QuickSort algorithm shown in listing \ref{lst:qsort} as an example. We
+of the QuickSort algorithm shown in Listing \ref{lst:qsort} as an example. We
 would like to log both calls to this function and evaluations of its arguments.
 
 \begin{listing}[h]
+	\centering
 	\begin{minted}[autogobble]{haskell}
 	qsort []     = []
 	qsort (a:as) = qsort left ++ [a] ++ qsort right
@@ -1400,16 +1447,34 @@ would like to log both calls to this function and evaluations of its arguments.
 	\label{lst:qsort}
 \end{listing}
 
-A correct transformation of \hsIdent{qsort} to add tracing would look like
-listing \ref{lst:qsort-perfect}. \todo{\ldots}
+A transformed version of \hsIdent{qsort} with dynamic tracing is shown in
+Listing~\ref{lst:qsort-perfect}. Every reference to an argument is replaced
+with a call to the helper function \hsIdent{traceArg}, patterns in function
+definitions are split into binding and pattern matching, and the right hand
+sides of functions are wrapped in \hsCode{let} expressions which introduce
+\hsIdent{callNumber} variables.
 
 \begin{listing}[h]
+	\centering
 	\begin{minted}[autogobble]{haskell}
-	qsort []     = []
-	qsort (a:as) = qsort left ++ [a] ++ qsort right
-	    where (left, right) = (filter (<=a) as, filter (>a) as)
+	qsort xs = let !callNumber = traceEntry "qsort"
+	           in case traceArg "qsort" "xs" callNumber xs of
+	             []     -> []
+	             (a:as) ->
+	               qsort left
+	                 ++ [traceArg "qsort" "a" callNumber a]
+	                 ++ qsort right
+	               where
+	               (left, right)
+	                = (filter
+	                    (<= traceArg "qsort" "a" callNumber a)
+	                    (traceArg "qsort" "as" callNumber as),
+	                   filter
+	                    (> traceArg "qsort" "a" callNumber a)
+	                    (traceArg "qsort" "as" callNumber as))
 	\end{minted}
-	\caption{The QuickSort algorithm on linked lists.}
+	\caption[The QuickSort algorithm, rewritten.]{The QuickSort algorithm on
+	linked lists, extended with impure tracing calls.}
 	\label{lst:qsort-perfect}
 \end{listing}
 
@@ -1443,7 +1508,7 @@ with their source file locations. Our post-typechecking action simply threads
 this field through our rewriting function, which also computes in the
 typechecking monad, and returns the transformed bindings.
 
-The rewriting function, shown in listing \ref{lst:hs-rewrite}, resides in the
+The rewriting function, shown in Listing \ref{lst:hs-rewrite}, resides in the
 \hsModule{Rewriting} module. It initiates a stateful computation which
 transforms the bindings in a generic manner using the \acrshort{syb} library.
 \begin{listing}[h]
