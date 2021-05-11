@@ -34,6 +34,7 @@
 % \usepackage{amssymb} %additional math symbols
 
 \usepackage{dirtree} %directory tree visualisation
+\usepackage{morewrites}
 \usepackage{xcolor}
 \usepackage{blindtext}
 \usepackage{footnote}
@@ -44,6 +45,10 @@
 \usepackage[htt]{hyphenat}
 \usepackage{xparse,minted}
 \usepackage{tikz}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable}
+\tcbuselibrary{fitting}
+\tcbuselibrary{minted}
 
 \usetikzlibrary{
 	shapes.multipart, arrows, positioning
@@ -51,6 +56,8 @@
 
 
 % custom commands
+\newcommand{\eg}{\emph{e.g.}\xspace}
+\newcommand{\ie}{\emph{i.e.}\xspace}
 \newcommand{\todo}[1]{\textcolor{red}{\textbf{[[#1]]}}}
 \newcommand{\blind}[1][1]{\textcolor{gray}{\Blindtext[#1][1]}}
 \newcommand{\citationNeeded}{\textcolor{red}{\textbf{[citation needed]}}}
@@ -106,6 +113,10 @@
 \newacronym{tso}{TSO}{Thread State Object}
 \newacronym{whnf}{WHNF}{Weak Head Normal Form}
 
+
+% hyphenation
+\hyphenation{front-end}
+
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % EDIT THIS
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
@@ -147,6 +158,8 @@ kompilátorů, generické programování}
 generic programming}
 \declarationOfAuthenticityOption{4} %select as appropriate, according to the desired license (integer 1-6)
 % \website{http://site.example/thesis} %optional thesis URL
+
+
 
 
 \begin{document}
@@ -451,86 +464,86 @@ about their execution context and timing.
 
 
 \section{The Glasgow Haskell Compiler} \label{sec:ghc}
-\acrshort{ghc} itself could be considered the most widespread Haskell tool. Its
-plethora of language extensions\cite{ghc-language-extensions}, which range from
-simple syntactical utilities to complex type system add-ons, lets the
-programmer customise the set of features provided by the language. We briefly
-discuss the internal organisation of the project and in the process explain
-those basics of the Haskell language which will come up in later chapters.
+\acrshort{ghc} is the most widespread Haskell distribution. Its plethora of
+language extensions\cite{ghc-language-extensions}, which range from simple
+syntactical utilities to complex type system add-ons, lets the programmer
+customise the set of features provided by the language. We briefly discuss the
+internal organisation of the project and in the process explain those basics of
+the Haskell language that are needed for the later chapters.
 
 \subsection{Architectural overview}
 Although a thorough and authoritative -- if a little dated -- description of
 the architecture of the compiler is available in the aptly named, freely
-accessible Architecture of Open Source Applications\cite{arch-ghc}, we include
+accessible Architecture of Open Source Applications \cite{arch-ghc}, we include
 a summary of the key points relevant to our work as well as to the discussed
-technicalities. \acrshort{ghc} is a capable optimising compiler for the Haskell
-language and represents its most prominent implementation. The project consists
-of three major components: the compiler itself, the boot libraries (a
-collection of core libraries \acrshort{ghc} itself depends on), and the
-\acrfull{rts}, a large library of C code linked into every compiled program.
-\acrshort{rts} provides low-overhead runtime support for facilities abstracted
-over by Haskell code, such as garbage collection, exception handling, or
-concurrency primitives.
+technicalities. \acrshort{ghc} is an optimising compiler for the Haskell
+language. The project consists of three major components: (1) the compiler
+itself, (2) the boot libraries (a collection of core libraries \acrshort{ghc}
+itself depends on), and (3) the \acrlong{rts} (\acrshort{rts}, a large library
+of C code linked into every compiled program). \acrshort{rts} provides
+low-overhead runtime support for facilities abstracted over by Haskell code
+such as garbage collection, exception handling, or concurrency primitives.
 
-\subsubsection*{Compiler front end}
-The compiler turns Haskell source code all the way to object and interface
-files\footnote{
-	These describe high-level information about a compiled module,
-	including data type definitions and in\-line\-able functions.
-}. The process is organised in several phases outlined below, these together
-form the \textit{compiler pipeline}.
+The compiler turns Haskell source code to object and interface files\footnote{
+These describe high-level information about a compiled module, including data
+type definitions and in\-line\-able functions.}. The process is organised in
+a pipeline that consists of the following phases:
 
 \begin{description}
-	\item[Parse] Construction of abstract syntax trees. Lexical and
-		syntactical errors are reported here.
-	\item[Rename] Resolution of identifiers into fully qualified names, to
-		uniquely identify what each name corresponds to. Undefined references
-		are reported here. Note that the renaming phase re\-associates operator
-		applications in the \acrshort{ast} formed during parsing, because
-		Haskell allows specifying the precedence and associativity of infix
-		operators, but their properties are only available after renaming.
-	\item[Typecheck] Verification of the program's type-correctness. Type
-		checking annotates all binders in the program with type signatures.
-		Type errors are reported here.
-	\item[Desugar] Conversion from Haskell surface syntax to the much smaller
+	\item[Parsing] constructs abstract syntax trees. Lexical and syntactical
+		errors are reported here.
+	\item[Renaming] resolves identifiers into fully qualified names. Undefined
+		references are reported here. The renaming phase re\-associates
+		operator applications in the \acrshort{ast} formed during parsing, this
+		is because Haskell allows specifying the precedence and associativity
+		of infix operators, but their properties are only available after
+		renaming.
+	\item[Typechecking] verifies the program's type-correctness. Type checking
+		annotates all binders in the program with type signatures.  Type errors
+		are reported here.
+	\item[Desugaring] converts Haskell surface syntax to the much smaller
 		intermediate language, Core.
-	\item[Simplify] Optimisation of the Core language, including demand
-		analysis, \hsCode{let} floating, dead-code elimination, common
-		subexpression elimination, constructor specialisation, and others.
-	\item[Convert to \acrshort{stg}] Translation of Core to shared term graph
-		form, suitable for code generation.
-	\item[Code generation] Generation of machine code or \acrshort{llvm} bit
-		code for further processing by the \acrshort{llvm} toolchain.
+	\item[Simplification] performs optimisations on the Core language,
+		including demand analysis, \hsCode{let} floating, dead-code
+		elimination, common subexpression elimination, constructor
+		specialisation, and others.
+	\item[Conversion to \acrshort{stg}] translates Core to the language of the
+		\acrlong{stg}, suitable for code generation.
+	\item[Code generation] produces machine code or \acrshort{llvm} bit code
+		for further processing by the \acrshort{llvm} toolchain.
 \end{description}
 
-As the program flows through the pipeline, the invariants it conforms to
-gradually change. The codebase reflects this by passing different data types
-from phase to phase. The types of the nodes of the surface syntax tree are
-indexed by an uninhabited type \hsType{GhcPass}, which is itself indexed by the
-\hsType{Pass} data type (i.e. \hsType{GhcPass} has kind \hsType{Pass -> *}),
-lifted to the type level. Together, the \hsType{GhcPass} types represent the
-various phases of the compiler front end, from parsing to renaming to type
-checking. The type level distinction between phases complicates the type
-signatures of almost all functions in the pipeline, but the choice comes with
-important benefits. Firstly, indexing \acrshort{ast} types by the
-\hsType{GhcPass} types provides a compile-time guarantee that nodes from
-different phases cannot be mixed unintentionally. Moreover, the phase type
-parameter is a requirement for the adoption of the Tress that Grow
-pattern\cite{trees-that-grow}, a powerful functional design pattern which
-enables extensions of both sum and product types at various phases.
+\subsubsection*{Compiler frontend}
+Phases of the pipeline from parsing to desugaring form the compiler frontend.
+It starts out with a textual representation and gradually transforms it into
+increasingly structured data before passing it on to the backend. During this
+process, the frontend identifies and reports all errors in the user's code.
 
-\subsubsection*{Trees that Grow}
-Let us take a small detour to explain the influential concept of the design
-pattern, invented\footnote{-- or, at your discretion, discovered --}
-specifically to add extensibility to \acrshort{ghc}'s abstract syntax data
-types. The basic algorithm for making a data type extensible is as follows:
+As the program flows through the pipeline, its invariants gradually change. The
+codebase reflects this by passing different data types from phase to phase. The
+types of the nodes of the surface syntax tree are indexed by an uninhabited
+type \hsType{GhcPass}, which is itself indexed by the \hsType{Pass} data type
+(i.e. \hsType{GhcPass} has kind \hsType{Pass -> *}), lifted to the type level.
+Together, the \hsType{GhcPass} types represent the various phases of the
+compiler frontend, from parsing to renaming to type checking. The type level
+distinction between phases complicates the type signatures of almost all
+functions in the pipeline, but the choice comes with important benefits.
+First, indexing \acrshort{ast} types by the \hsType{GhcPass} types provides a
+compile-time guarantee that nodes from different phases cannot be mixed
+unintentionally. Second, the phase type parameter allows one to use the Tress
+that Grow pattern\cite{trees-that-grow}, that enables easy extensions of both
+sum and product types at various phases.
+
+\begin{tcolorbox}[parbox=false, breakable, title=Trees that Grow]
+Let us take a small detour to explain the concept of the design pattern,
+invented specifically to add extensibility to \acrshort{ghc}'s abstract syntax
+data types. The basic algorithm for making a data type extensible is as
+follows:
 \begin{enumerate}
 	\item index the data type of choice by a type parameter $\xi$, called the
 		\textit{extension descriptor},
 		\begin{center}
-			\hsCode{data D = ...} \\
-			$\downarrow$ \\
-			\hsCode{data D &$\xi$& = ...}
+			\hsCode{data D = ...} $\rightarrow$ \hsCode{data D &$\xi$& = ...}
 		\end{center}
 	\item add one new constructor $\mathrm{Extra}$ to the data type,
 		\begin{center}
@@ -538,17 +551,15 @@ types. The basic algorithm for making a data type extensible is as follows:
 			$\downarrow$ \\
 			\hsCode{data D &$\xi$& = C&$_1$& ... | ... | C&$_n$& ... | Extra}
 		\end{center}
-	\item create a \textit{type family} $X_{\mathrm{Con}}$ -- a function from types to
-		types -- for every constructor $\mathrm{Con}$ of the data type (including for
-		$\mathrm{Extra}$),
+	\item create a \textit{type family} $X_{\mathrm{Con}}$ -- a function from
+		types to types -- for all constructors,
 		\begin{center}
 			\hsCode{type family X&$_{C_1}$& &$\quad\xi$&} \\
 			$\vdots$ \\
 			\hsCode{type family X&$_{C_n}$& &$\quad\xi$&} \\
 			\hsCode{type family X&$_{\mathrm{Extra}}$& &$\xi$&}
 		\end{center}
-	\item add one field of type $X_{\mathrm{Con}}~\xi$ to every constructor $\mathrm{Con}$ of the
-		data type (again including to $\mathrm{Extra}$).
+	\item add one field of type $X_{\mathrm{Con}}~\xi$ to every constructor.
 		\begin{center}
 			\hsCode{data D &$\xi$& = C&$_1$& ... | ... | Extra} \\
 			$\downarrow$ \\
@@ -557,14 +568,15 @@ types. The basic algorithm for making a data type extensible is as follows:
 		\end{center}
 \end{enumerate}
 
-This short refactoring enables the programmer to both restrict the use of
+This small refactoring enables the programmer to both restrict the use of
 certain constructors and introduce new constructors depending on the extension
-descriptor $\xi$ by manipulating the definitions of the type families rather
-than the original data type itself. It also lets the programmer add new fields
-to the existing constructors, again depending on the particular type $\xi$.
+descriptor $\xi$. The programmer can apply these modifications by manipulating
+the definitions of the type families rather than the original data type itself.
+It also lets the programmer add new fields to the existing constructors, again
+depending on the particular type $\xi$.
 
 To define the original data type without extensions in terms of its extensible
-variant, it suffices to fix the extension descriptor to some type, e.g.  to
+variant, it suffices to fix the extension descriptor to some type, \eg to
 \hsType{Void}, and omit any equations for the type families. Doing so leaves
 the type level applications of the shape $X_{\mathrm{Con}}~\mathrm{Void}$
 irreducible and thus isomorphic to any empty type, with the only valid value
@@ -583,11 +595,11 @@ a usage perspective: we have to pass a \hsIdent{void} or \hsIdent{undefined}
 for unused extension fields during construction, these extensions also clutter
 the pattern matches, and matching on both constructors and multiple fields
 added via extensions is clunky at best. These grievances can be solved by the
-use of a brilliantly convenient syntactical feature of Haskell called
-\textit{pattern synonyms}\cite{pattern-synonyms}. These let the programmer
-abstract over patterns and so define reusable interfaces to the data types
-extended via the Trees that Grow transformation, hiding the structural
-complexity of the underlying flexible data type.
+use of a convenient syntactical feature of Haskell called \textit{pattern
+synonyms}\cite{pattern-synonyms}. These let the programmer abstract over
+patterns and so define reusable interfaces to the data types extended via the
+Trees that Grow transformation, hiding the structural complexity of the
+underlying flexible data type.
 
 For an in-depth description of the design pattern, its generalisations to
 multiple type parameters, existentials, \acrshortpl{gadt}, hierarchies of
@@ -598,26 +610,30 @@ publication introducing the idea\cite{trees-that-grow}.
 Although the Trees that Grow pattern is not used universally throughout the
 \acrshort{ghc} project, its concepts play an important role in many of the core
 data types.
+\end{tcolorbox}
 
 \subsubsection*{Compiler back end}
 The back end of the compiler starts with the desugaring phase, which translates
 the resolved and type checked surface syntax into an \acrfull{ir} called Core.
 The Haskell language contains many redundancies and shorthands designed to make
-the syntax more user-friendly. The \acrshort{ast} data types comprise hundreds
-of constructors. In contrast, Core only has about 10 syntactical forms. It is a
-typed lambda calculus with a much simpler type system than Haskell's, a variant
-of System F extended with type equality coercions\cite{system-fc}.
+the syntax more user-friendly. The \acrshort{ast} data types contains hundreds
+of constructors. In contrast, Core only has about 10 syntactical forms.
+Essentially, it is a variant of System F extended with type equality
+coercions\cite{system-fc}.
 
 Although Core is typed, the compiler only type checks Core programs if the user
-explicitly asks it to do so. Core types exist mostly to validate the internal
-consistency of the compiler, all type errors in user code are reported in the
-last phase of the front end.
+explicitly asks for it. Core types exist mostly to validate the internal
+consistency of the compiler -- desugaring a Haskell program which passed
+typechecking into incorrectly typed Core would be a compiler bug.
 
 Most of the optimisation passes \acrshort{ghc} performs are local
 semantics-pre\-serv\-ing transformations of Core (Core-to-Core passes) which
 are applied in many iterations during invocations of the
-simplifier\cite{cmtary-core2core}. These local rewritings improve intermediate
-code between applications of heavier optimisations.
+simplifier\cite{cmtary-core2core}. These include \eg constant folding,
+inlining, or fusion of nested case expressions. The local rewritings improve
+intermediate code between applications of heavier optimisations, such as
+specialisation (to eliminate overloading), demand analysis, \hsCode{let}
+floating, and others.
 
 The optimised Core is transformed to a slightly different representation which
 corresponds to programs of an abstract graph reduction machine, the
@@ -629,16 +645,17 @@ built-in native code back\-end, but the \texttt{Cmm} representation can be
 translated to \acrshort{llvm} bit code and additionally processed by the
 \acrshort{llvm} pipeline.
 
-A notable detour in the compiler is the bytecode compilation pipeline, which
-does not involve optimisations, the conversion to \acrshort{stg}, or any later
-passes. Instead, the separate bytecode generator translates Core directly to
-bytecode instructions for execution by the \acrshort{rts} interpreter.
-\todo{add a link to the MR changing this}
+A notable divergence in the compiler is the bytecode compilation pipeline,
+which does not involve optimisations, the conversion to \acrshort{stg}, or any
+later passes. Instead, the separate bytecode generator translates Core directly
+to bytecode instructions for execution by the \acrshort{rts} interpreter,
+although this is about to change in \acrshort{ghc} 9.2
+\cite{mr-ghci-stg-unboxed}.
 
 \subsubsection*{Compiler plugins}
-Both the front end and the back end of the compiler can be modified and
-extended in a modular manner with \textit{compiler plugins}, which come in two
-flavours: core plugins on the back end and source plugins on the front
+Both the front end and the back end of the compiler can be modified or extended
+in a modular way using \textit{compiler plugins}, which come in two flavours:
+core plugins on the back end and source plugins on the front
 end\cite{ghc-source-plugins}. The former act on the Core language and are best
 suited for optimisations, while high level analyses, language extensions and
 code generation are better handled by the latter. We will discuss source
@@ -658,9 +675,8 @@ with abstractions provided by the operating system. The major components of the
 		onto heavy \acrshort{os} threads,
 	\item primitives for exception handling, concurrency, and built-in
 		operations,
-	\item a bytecode interpreter and a dynamic linker for \acrshort{ghci},
-	\item support for \acrfull{stm}, and
-	\item many other features\cite{cmtary-rts}.
+	\item a bytecode interpreter and a dynamic linker for \acrshort{ghci}, and
+	\item support for \acrfull{stm}.
 \end{itemize}
 
 The storage manager defines the data structures which represent Haskell values
@@ -697,15 +713,15 @@ here.
 	\label{fig:closure-layout}
 \end{figure}
 
-\textit{Closures} -- the runtime objects of programs compiled with
-\acrshort{ghc} -- all share the same basic representation shown in figure
+\textit{Closures} (the runtime objects of programs compiled with
+\acrshort{ghc}) share the same basic representation shown in Figure
 \ref{fig:closure-layout}. The \textit{header} contains primarily a pointer to
 the metadata of a closure, though it also includes a profiling header if
 profiling is enabled. The \textit{payload} of a closure usually contains data
 not known at compile time. The \textit{info table} identifies the type of the
-closure (data constructor, function, thunk, \ldots) and informs the garbage
+closure (data constructor, function, thunk, \ldots). It informs the garbage
 collector about the pointer\-hood of the payload. The \textit{entry code} is
-the code executed when \textit{entering}, i.e. evaluating the closure. For
+the code executed when \textit{entering}, \ie evaluating the closure. For
 example, the entry code of functions represents the body of the function.
 
 The \acrshort{stg} uses a number of registers, a heap, and a stack which stores
@@ -727,7 +743,7 @@ closure types:
 		functions assume that all their arguments are present at the top of the
 		stack. This is known as the \textit{eval/apply} evaluation model.
 
-		The payload of function closures carries (pointers to) the free
+		The payload of function closures carries pointers to the free
 		variables of the function's body.
 
 	\item[Thunks] represent unevaluated expressions. When entered, the

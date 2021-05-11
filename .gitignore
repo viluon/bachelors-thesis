@@ -28,5 +28,6 @@
 *.run.xml
 *.bcf
 *.lol
+*.mw
 template/
 _minted-*/
