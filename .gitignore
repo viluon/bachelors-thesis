@@ -27,5 +27,6 @@
 *.xdv
 *.run.xml
 *.bcf
+*.lol
 template/
 _minted-*/

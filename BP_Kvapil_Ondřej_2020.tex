@@ -912,9 +912,9 @@ tracing with compiler plugins.
 \section{Using \acrshort{ghci}} \label{sec:using-ghci}
 The bytecode compilation pipeline and the interpreter offer a refreshing break
 from the comparative complexity of \acrshort{ghc}'s back end. Unlike the
-\acrshort{rts} linked to a program compiled to object code, the interpreter is
-at the perfect level of abstraction to directly track evaluations of thunks and
-the stream of control flow in a program.
+\acrshort{rts} linked to a program compiled to object code\todo{unclear}, the
+interpreter is at the perfect level of abstraction to directly track
+evaluations of thunks and the stream of control flow in a program.
 
 One of the issues with this approach that is clear from the outset is the range
 of supported language extensions. The bytecode compiler and the interpreter
@@ -1057,7 +1057,18 @@ which handles closure evaluation, unboxed returns, function application, and
 interpretation of bytecode instructions. For tasks it is unable to deal with,
 such as application of machine-code functions, it returns to the scheduler.
 
-Interpretation works simply by case analysis on the current instruction.
+The interpreter looks at the top of the stack to decide what to do. If it finds
+a closure, it inspects its type. Most closures are evaluated by
+\textit{entering}, that is, execution jumps to their entry code. For some types
+of closures (such as indirections), the interpreter includes shortcuts to avoid
+the overhead of returning from the interpretation loop and entering the
+closure. To handle other types of closures, the interpreter returns to the
+scheduler, setting a field in the \acrshort{tso} which indicates that execution
+should proceed with machine code evaluation when the thread is woken again.
+If the top of the stack contains \todo{\ldots}
+
+Interpretation of byte code works simply by case analysis on the current
+instruction.
 
 \subsection*{The debugger}
 \todo{this needs an update now that the previous subsections were rewritten}
@@ -1306,37 +1317,46 @@ to the containerised process. In comparison, a native set-up with
 which is why we would recommend it for a project similar in scale to ours.
 
 \subsection*{Build process}
-The build system bootstraps the self-hosting compiler in
-several steps. To build \acrshort{ghc}, an appropriate version of
-it has to be already installed. The compiler provided by the system is referred
-to as the \textbf{stage 0} compiler \todo{fix the formatting of stages}.
-\acrshort{ghc} comes with build scripts which use the \textbf{stage 0} compiler
-to build first the Hadrian build system. Once Hadrian has been built, the user
-invokes it to build the \textbf{stage 1} compiler, which is a \acrshort{ghc}
-linked against the \textbf{stage 0} \hackage{base} library. The \textbf{stage
-1} compiler is subsequently used to build the core libraries from scratch. It
-is then utilised again to build the \textbf{stage 2} compiler, which is linked
-against the freshly built \hackage{base}. The \textbf{stage 2} compiler
-constitutes a complete build of \acrshort{ghc} from source code. There is an
-optional follow-up step, where the \textbf{stage 2} compiler builds a
-\textbf{stage 3} compiler, which is useful for profiling \acrshort{ghc} while
-building \acrshort{ghc}.
-
 The first step to working on the project after obtaining the source code is
 setting up the build system. Since specific releases of \acrshort{ghc} require
-specific \textbf{stage 0} compilers as the project quickly adapts to use new
-language extensions, the management of \acrshort{ghc} versions on a Unix-like
-system with a system-wide package manager can be difficult. To ease the
-management of installed versions and enable quick switching between them, the
-\texttt{ghcup} tool\cite{ghcup} has been developed. \todo{this will need some
-more citations} \texttt{ghcup} lets the \acrshort{ghc} developer quickly
+specific versions of it already installed as the project quickly adapts to use
+new language extensions, the management of \acrshort{ghc} versions on a
+Unix-like system with a system-wide package manager can be difficult. To ease
+the management of installed versions and enable quick switching between them,
+the \texttt{ghcup} tool\cite{ghcup} has been developed.  \todo{this will need
+some more citations} \texttt{ghcup} lets the \acrshort{ghc} developer quickly
 install and switch between the releases of not only \acrshort{ghc} itself, but
 also Cabal, the Haskell build system and dependency manager, and the
 \acrfull{hls}, an \acrshort{lsp}-compliant language server providing
 Haskell-specific editor integration features.
 
+The build system bootstraps the self-hosting compiler in several steps. The
+\acrshort{ghc} provided by the system is referred to as the \textbf{stage 0}
+compiler \todo{fix the formatting of stages}. \acrshort{ghc} comes with build
+scripts which use the \textbf{stage 0} compiler to build first the Hadrian
+build system. Once Hadrian has been built, the user invokes it to build the
+\textbf{stage 1} compiler, which is a \acrshort{ghc} linked against the
+\textbf{stage 0} \hackage{base} library. The \textbf{stage 1} compiler is
+subsequently used to build the core libraries from scratch. It is then utilised
+again to build the \textbf{stage 2} compiler, which is linked against the
+freshly built \hackage{base}. The \textbf{stage 2} compiler constitutes a
+complete build of \acrshort{ghc} from source code. There is an optional
+follow-up step, where the \textbf{stage 2} compiler builds a \textbf{stage 3}
+compiler, which is useful for profiling \acrshort{ghc} while building
+\acrshort{ghc}.
 
-\todo{ways and flavours!}
+The Hadrian build system offers many configuration options defined as a Haskell
+module called \hsModule{UserSettings}. Hadrian comes with a template settings
+file which explains the various options the user can tweak. The main
+abstraction is a \textit{build flavour}, a collection of build settings which
+fully define a \acrshort{ghc} build. For debugging the \acrshort{rts}, it is
+important to know about a lower-level abstraction called a \textit{build way}.
+Libraries and the \acrshort{rts} can be built in multiple \textit{ways}, which
+configure far-reaching \acrshort{ghc}-specific features, such as profiling and
+debugging symbols. The \acrshort{rts} can be built in threaded and non-threaded
+ways, the latter variant of \acrshort{rts} runs in a single operating system
+thread.
+
 After the initial build, the \textbf{stage 1} compiler can be \textit{frozen}
 by passing a flag to the build system on subsequent invocations. This prevents
 rebuilding the \textbf{stage 1} compiler every time a source file changes, which
@@ -1345,7 +1365,37 @@ speeds up the edit-compile-run cycle tremendously.
 \todo{\ldots}
 
 \section{Dynamic tracing with plugins}
-\todo{\ldots}
+With a Haskell development environment ready, we have all we need to dive into
+the implementation of a compiler plugin. We take a look at the details first,
+then take a step back and cover building and applying the plugin.
+
+Our goal is to transform the following code into a variant that produces a
+recording of laziness-related events during evaluation. Take the naive version
+of the QuickSort algorithm shown in listing \ref{lst:qsort} as an example. We
+would like to log both calls to this function and evaluations of its arguments.
+
+\begin{listing}[h]
+	\begin{minted}[autogobble]{haskell}
+	qsort []     = []
+	qsort (a:as) = qsort left ++ [a] ++ qsort right
+	    where (left, right) = (filter (<=a) as, filter (>a) as)
+	\end{minted}
+	\caption{The QuickSort algorithm on linked lists.}
+	\label{lst:qsort}
+\end{listing}
+
+A correct transformation of \hsIdent{qsort} to add tracing would look like
+listing \ref{lst:qsort-perfect}. \todo{\ldots}
+
+\begin{listing}[h]
+	\begin{minted}[autogobble]{haskell}
+	qsort []     = []
+	qsort (a:as) = qsort left ++ [a] ++ qsort right
+	    where (left, right) = (filter (<=a) as, filter (>a) as)
+	\end{minted}
+	\caption{The QuickSort algorithm on linked lists.}
+	\label{lst:qsort-perfect}
+\end{listing}
 
 \subsection*{Anatomy of a plugin}
 Our source plugin consists of four modules.
@@ -1377,40 +1427,40 @@ with their source file locations. Our post-typechecking action simply threads
 this field through our rewriting function, which also computes in the
 typechecking monad, and returns the transformed bindings.
 
-The rewriting function, shown in figure \ref{fig:hs-rewrite}, resides in the
+The rewriting function, shown in listing \ref{lst:hs-rewrite}, resides in the
 \hsModule{Rewriting} module. It initiates a stateful computation which
 transforms the bindings in a generic manner using the \acrshort{syb} library.
-\begin{figure}[h]
+\begin{listing}[h]
 	\centering
 	\begin{minted}[autogobble]{haskell}
         rewrite :: LHsBinds GhcTc -> TcM (LHsBinds GhcTc)
         rewrite binds = fst <$> (`runStateT` initialState)
                                 (everywhereM' trans binds)
 	\end{minted}
-	\caption{The top-level rewriting function, a sole export of the
-	\hsModule{Rewriting} module.}
-	\label{fig:hs-rewrite}
-\end{figure}
+	\caption[The top-level rewriting function.]{The top-level rewriting
+	function, a sole export of the \hsModule{Rewriting} module.}
+	\label{lst:hs-rewrite}
+\end{listing}
 
 Since the \acrshort{ghc} \acrshort{api} abstracts over compiler state using
 (among other types) the \hsType{TcM} monad, the generic transformation
 involving any non-trivial compiler computations needs to be monadic as well.
 This transformation is implemented by the \hsIdent{trans} function (shown in
-fig. \ref{fig:hs-trans}), which additionally carries a context from the roots
+fig. \ref{lst:hs-trans}), which additionally carries a context from the roots
 of the top-level definitions down to their leaves. We combine the stateful
 traversal with the typechecking monad by way of the \hackage{mtl} package,
 itself inspired by \cite{higher-order-polymorphism}, using the \hsType{StateT}
 monad transformer.
 
-\begin{figure}[h]
+\begin{listing}[h]
 	\centering
 	\begin{minted}[autogobble]{haskell}
         trans :: Typeable a => a -> StateT WrapperState TcM a
         trans = mkM collectFunInfo `extM` wrapRef `extM` incrementCC
 	\end{minted}
 	\caption{The generic transformation function.}
-	\label{fig:hs-trans}
-\end{figure}
+	\label{lst:hs-trans}
+\end{listing}
 
 \hsIdent{trans} is applied in a single, top-down traversal of the
 \acrshortpl{ast} via a \acrshort{syb} scheme derived from \hsIdent{everywhereM}.
@@ -1558,7 +1608,23 @@ suitable for further analysis.
 		\hsIdent{logt} then simply reads the \hsType{IORef}, appends tracing
 		data to the file, and flushes the handle, to avoid problems with lazy
 		IO and prevent data loss when the program exits.
+
 \end{description}
+
+\subsection*{Using the plugin}
+Applying a source plugin in the compilation pipeline of \acrshort{ghc} is
+straightforward: it suffices to pass a command-line option \texttt{-fplugin}
+set to the name of the module which exports the plugin definition. Multiple
+source plugins can be specified at once by passing more than one
+\texttt{-fplugin} option, the compiler applies them in the order they are
+defined\footnote{Still subject primarily to the order of phases in the
+pipeline, but ordered according to the succession of command-line arguments to
+avoid ambiguities.}. To make the module visible to the compiler, it has to be
+installed in \acrshort{ghc}'s package database, which can be achieved with the
+help of the Cabal command \mintinline{bash}{cabal install --lib} ran in the
+plugin's directory.
+
+\todo{\ldots}
 
 
 
