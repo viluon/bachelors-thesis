@@ -92,6 +92,7 @@
 \newacronym{ghci}{GHCi}{\acrshort{ghc} interpreter}
 \newacronym{rts}{RTS}{Runtime System}
 \newacronym{stm}{STM}{Software Transactional Memory}
+\newacronym{ui}{UI}{User Interface}
 \newacronym{ffi}{FFI}{Foreign Function Interface}
 \newacronym{th}{TH}{Template Haskell}
 \newacronym{os}{OS}{Operating System}
@@ -178,42 +179,26 @@ both benefits in expressiveness and implementation challenges.
 \begin{listing}[h]
 	\centering
 	\begin{minted}[autogobble]{haskell}
+		-- snd is non-strict in the first
+		-- component of the pair
 		snd :: (Int, Int) -> Int
 		snd (x, y) = y
-	\end{minted}
-	\caption{The right projection of an ordered pair of integers, non-strict in
-	the first component of the pair.}
-	\label{lst:snd}
-\end{listing}
 
-\begin{listing}[h]
-	\centering
-	\begin{minted}[autogobble]{haskell}
-		foo :: Int
+		-- purity and laziness: foo reduces to 3,
+		-- complexComputation is not evaluated
 		foo = snd (complexComputation, 3)
-	\end{minted}
-	\caption{Non-strict semantics avoids unnecessary computations.}
-	\label{lst:foo}
-\end{listing}
 
-\begin{listing}[h]
-	\centering
-	\begin{minted}[autogobble]{haskell}
-		foo' :: Int
+		-- non-strict semantics can prevent
+		-- runtime errors
 		foo' = snd (error "oops!", 3)
-	\end{minted}
-	\label{lst:foo'}
-	\caption{Non-strictness can avoid runtime errors.}
-\end{listing}
 
-\begin{listing}[h]
-	\centering
-	\begin{minted}[autogobble]{haskell}
-		let x = complexComputation
-		in  x `par` f x
+		-- computations are shared,
+		-- even across threads
+		bar = let x = complexComputation
+		      in x `par` f x
 	\end{minted}
-	\caption{\acrshort{ghc} shares delayed computations and their results, even
-	when evaluating in parallel.}
+	\caption[Example lazy expressions.]{Example expressions where the semantics
+	of Haskell notably differ from that of strict languages.}
 	\label{lst:let-x}
 \end{listing}
 
@@ -691,10 +676,12 @@ built-in native code back\-end, but the \texttt{Cmm} representation can be
 translated to \acrshort{llvm} bit code and additionally processed by the
 \acrshort{llvm} pipeline.
 
-A notable divergence in the compiler is the bytecode compilation pipeline,
-which does not involve optimisations, the conversion to \acrshort{stg}, or any
-later passes. Instead, the separate bytecode generator translates Core directly
-to bytecode instructions for execution by the \acrshort{rts} interpreter,
+A notable divergence in the compiler is the bytecode compilation pipeline.
+Bytecode is executed by the \acrshort{rts} interpreter, the backbone of
+\acrshort{ghc}'s interactive interface, which we will discuss in Chapter
+\ref{sec:analysis-design}. The bytecode pipeline does not involve
+optimisations, the conversion to \acrshort{stg}, or any later passes. Instead,
+the separate generator translates Core directly to bytecode instructions,
 although this is about to change in \acrshort{ghc} 9.2
 \cite{mr-ghci-stg-unboxed}.
 
@@ -714,16 +701,22 @@ into the programs themselves, much of which involves low-level interactions
 with abstractions provided by the operating system. The major components of the
 \acrshort{rts} are the following:
 \begin{itemize}
-	\item A storage manager, including a block allocation layer, which
+	\item A user-space scheduler which multiplexes lightweight Haskell threads
+		onto heavy \acrshort{os} threads,
+	\item a storage manager, including a block allocation layer, which
 		abstracts over memory management, and a parallel generational garbage
 		collector,
-	\item a user-space scheduler which multiplexes lightweight Haskell threads
-		onto heavy \acrshort{os} threads,
 	\item primitives for exception handling, concurrency, and built-in
 		operations,
 	\item a bytecode interpreter and a dynamic linker for \acrshort{ghci}, and
 	\item support for \acrfull{stm}.
 \end{itemize}
+
+The scheduler is at the heart of the \acrshort{rts}. Haskell threads yield to
+the scheduler when their assigned slice of execution time expires, when they
+run out of heap or stack space, or when they need to switch between machine
+code execution and bytecode interpretation. Any foreign calls into or out of
+Haskell need to pass through the scheduler as well.
 
 The storage manager defines the data structures which represent Haskell values
 at runtime. Since the understanding of these representations is crucial for the
@@ -781,15 +774,16 @@ stack if necessary.
 All the dynamic allocations are managed by the garbage collector, including
 stack frames and lightweight threads.
 
-Here \todo{ew, improve the wording here} are a few of the most important
-closure types:
+There are over 60 different types of closures. Here is a summary of the most
+important ones:
 
 \begin{description}
 	\item[Function closures] represent Haskell functions. When entered,
 		functions assume that all their arguments are present at the top of the
-		stack. This is known as the \textit{eval/apply} evaluation model.
+		stack. This is known as the \textit{eval/apply} evaluation
+		model\cite{eval-apply}.
 
-		The payload of function closures carries pointers to the free
+		The payload of a function closure carries pointers to the free
 		variables of the function's body.
 
 	\item[Thunks] represent unevaluated expressions. When entered, the
@@ -804,8 +798,10 @@ closure types:
 		sharing, indirections are removed by the garbage collector and never
 		outlive the youngest generation.
 
-	\item[Black holes] are indirections under evaluation. \todo{concurrent
-		update}
+	\item[Black holes] are thunks under evaluation, with a layout identical to
+		that of indirections. Since thunks are shared across threads, a thread
+		entering a black hole blocks until it is overwritten with an
+		indirection to the evaluated object.
 
 	\item[Data constructors] carry their arguments (fields) as payload, ordered
 		such that pointers come first. Their entry code returns immediately to
@@ -821,12 +817,10 @@ closure types:
 
 
 \subsection{Strictness features}
-The compilation pipeline, the \acrshort{rts}, and base libraries are the
-products of substantial amounts of effort invested over more than thirty years,
-but they are not the only contributions of the \acrshort{ghc} project.
-\acrshort{ghc} often serves as the incubator of new language features --
-including those directly related to managing the amount of laziness in a
-program. We dedicate this subsection to an overview thereof.
+\acrshort{ghc} is not only used for production ready Haskell, but also serves
+as an incubator of new language features -- including those directly related to
+managing the amount of laziness in a program. It is important to include these
+directly in the compiler, as the \todo{finish this}
 
 A simple and robust method of preventing undesired laziness is the
 language extension \texttt{BangPatterns}, which introduces a new pattern syntax
@@ -837,32 +831,34 @@ do not benefit from pervasive laziness it is often very easy to simply annotate
 certain patterns in the program with exclamation marks and observe a reduction
 in memory consumption.
 
-The language extension shares the exclamation mark syntax with a feature of
-Haskell 2010, strictness flags\cite{haskell2010-strictness-flags}. While
+The language extension shares the exclamation mark syntax with the Haskell 2010
+strictness flags feature\cite{haskell2010-strictness-flags}. While
 \texttt{BangPatterns} add optional strictness to pattern matching, strictness
-flags do the same \todo{find a better word} for data types. Unfortunately,
-proper use of this flexibility hinges on the programmer's knowledge of how is
-the particular piece of code going to be used. While it is good practice to
-request the early evaluation of values which will have to be forced anyway,
-sprinkling strictness annotations throughout library code in attempts to
-prevent space leaks may lead to the unintentional sacrifice of the benefits of
-laziness, even preventing some usage patterns in subtle ways. Additionally,
-since these strict evaluation facilities only force thunks to \acrshort{whnf},
-the evaluated objects may still retain large delayed expressions. The ability
-to excise thunks from a Haskell value completely was the core motivation for
-the development of the \hackage{deepseq} library.
+flags do the same for data types. Unfortunately, proper use of this flexibility
+hinges on the programmer's knowledge of how is the particular piece of code
+going to be used. While it is good practice to request the early evaluation of
+values which will have to be forced anyway, sprinkling strictness annotations
+throughout library code in attempts to prevent space leaks may lead to the
+unintentional sacrifice of the benefits of laziness, even preventing some usage
+patterns in subtle ways. Additionally, since these strict evaluation facilities
+only force thunks to \acrshort{whnf}, the evaluated objects may still retain
+large delayed expressions. The ability to excise thunks from a Haskell value
+completely was the core motivation for the development of the \hackage{deepseq}
+library.
 
 The lack of programmer insight into how a piece of code is used in a program
-and what strictness properties it has is a major developer experience issue.
+and what strictness properties it has is a major developer experience
+issue\cite{memory-profiling-blog-post, anatomy-of-thunk-leak-blog-post,
+nothunks-blog-post, haskell-space-leaks, detecting-space-leaks-blog-post}.
 Some of the discussed debugging tools help ameliorate the problem, but
-\acrshort{ghc} itself includes features especially suited to doing so
-\todo{wording?}. The compiler supports two profiling modes, cost-centre
-profiling and ``ticky-ticky'' profiling, which the \acrshort{ghc} User's Guide
-dedicates a chapter to\cite{ghc-profiling}. While the ``ticky-ticky'' mode is
-only of interest to \acrshort{ghc} developers, the cost-centre profiling
-functionality is an easy-to-use tool for understanding the time and space
-behaviour of Haskell programs. All it requires of the programmer is a
-recompilation of the modules of interest with a few specific compiler options.
+\acrshort{ghc} itself includes features especially suited to doing so. The
+compiler supports two profiling modes, cost-centre profiling and
+``ticky-ticky'' profiling, which the \acrshort{ghc} User's Guide dedicates a
+chapter to\cite{ghc-profiling}. While the ``ticky-ticky'' mode is only of
+interest to \acrshort{ghc} developers, the cost-centre profiling functionality
+is an easy-to-use tool for understanding the time and space behaviour of
+Haskell programs. All it requires of the programmer is a recompilation of the
+modules of interest with a few specific compiler options.
 
 Cost-centre profiling assigns the so-called ``cost-centres'' to certain
 sections of code. The \acrshort{rts} records any time spent and allocations
@@ -918,14 +914,7 @@ unnecessary laziness which are small enough not to cause substantial problems
 could hide in the compiled program. It is a part of the motivation behind this
 thesis to lay the groundwork necessary for their detection.
 
-\todo{Explain that several previous approaches had a direct influence on the
-	compiler. \acrshort{ghc} now has \acrshort{hpc}-specific features, compiler
-	plugins, which supersede source-to-source transformations (strengthening
-	the monopoly but simplifying implementation and streamlining the process),
-	and a codebase that's increasingly amenable to various extensions via the
-	trees that grow pattern, \hsIdent{Tickish}, etc.}
-...
-
+\todo{summary?}
 
 \chapter{Analysis and design} \label{sec:analysis-design}
 
@@ -973,7 +962,7 @@ tracing with compiler plugins.
 
 \section{Using \acrshort{ghci}} \label{sec:using-ghci}
 The bytecode compilation pipeline and the interpreter offer a refreshing break
-from the comparative complexity of \acrshort{ghc}'s back end. Unlike the
+from the comparative complexity of \acrshort{ghc}'s backend. Unlike the
 \acrshort{rts} linked to a program compiled to object code\todo{unclear}, the
 interpreter is at the perfect level of abstraction to directly track
 evaluations of thunks and the stream of control flow in a program.
@@ -991,11 +980,11 @@ an interactive interface built on \acrshort{ghc}'s bytecode compilation
 pipeline and the bytecode interpreter of the \acrshort{rts}. It offers a
 read-eval-print loop popular in other functional programming languages.
 
-\acrshort{ghci} consists of several key components: the \acrshort{ghci} UI, the
-\acrshort{ghci} library code, the \acrshort{ghci} debugger, the bytecode
-generator, and the bytecode interpreter.  The following sections will introduce
-each of the building blocks from which \acrshort{ghci} is composed, starting
-with an overview of how they fit together.
+\acrshort{ghci} consists of several key components: the \acrshort{ui}, the
+\acrshort{ghci} library code, the debugger, the bytecode generator, and the
+bytecode interpreter. The following sections will introduce each of the
+building blocks from which \acrshort{ghci} is composed, starting with an
+overview of how they fit together.
 
 \subsection*{The life of an interpreted expression}
 \acrshort{ghci} can either serve as a \acrshort{repl} interface, processing
@@ -1013,16 +1002,16 @@ resolving references between bytecode objects as well as between
 \acrshortpl{bco} and object code.
 
 These features are transparent to the user, who manipulates \acrshort{ghci} via
-its user interface. The UI is implemented separately from the core
+its user interface. The \acrshort{ui} is implemented separately from the core
 functionality and communicates with the \acrshort{ghci} library code via
-message-passing. This separation allows the UI and the library code, which is
-in charge of interpreted evaluation, run in different processes.
+message-passing. This separation allows the \acrshort{ui} and the library code,
+which is in charge of interpreted evaluation, run in different processes.
 \acrshort{ghci} features a mode of operation called ``Remote \acrshort{ghci},''
-in which the UI and the interpreter communicate over a pipe. Remote
+in which the \acrshort{ui} and the interpreter communicate over a pipe. Remote
 \acrshort{ghci} is useful for situations where the capabilities and heap object
 definitions of the runtime systems of the compiler and the interpreter differ,
-e.g. when the compiler and \acrshort{ghci} UI were built regularly with
-optimisations, but the interpreter was built with profiling.
+e.g. when the compiler and \acrshort{ghci} \acrshort{ui} were built regularly
+with optimisations, but the interpreter was built with profiling.
 
 When evaluating an expression, the library code forks a new thread to perform
 evaluation independently of the interpreter server. This ensures that
@@ -1051,34 +1040,37 @@ keeps running, eventually either producing a result, throwing an exception, or
 hitting a breakpoint. In the former two cases, it simply fills the
 \hsIdent{statusMVar} with the appropriate information (either the result of
 evaluation or the exception) and exits. The server thread resumes execution,
-passing the result from the \texttt{eval} thread to the UI.
+passing the result from the \texttt{eval} thread to the \acrshort{ui}.
 
 The case when the \texttt{eval} thread hits a breakpoint is more interesting.
 First, the \texttt{eval} thread fills the \hsIdent{statusMVar} to wake the
 server thread, notifying it of the breakpoint. Then it waits until the server
 thread fills the \hsIdent{breakMVar}, pausing evaluation. The server thread
-notifies the UI, passing along an identifier of the breakpoint that the
-\texttt{eval} thread hit. At this point, the UI notifies the user that
-evaluation paused on a breakpoint. The user can continue to enter expressions
-into the \acrshort{ghci} prompt, these will be evaluated independently by newly
-forked threads. These can also hit breakpoints and wake the server thread,
-which notifies the UI again. None of this interferes with the initial
-\texttt{eval} thread, because every forked \texttt{eval} thread gets a new pair
-of status and breakpoint mutable variables. The user may resume execution in
-the UI, which messages the server thread, which in turn fills the appropriate
-\hsIdent{breakMVar}, waking the \texttt{eval} thread and blocking on
-\hsIdent{statusMVar} once again.
+notifies the \acrshort{ui}, passing along an identifier of the breakpoint that
+the \texttt{eval} thread hit. At this point, the \acrshort{ui} notifies the
+user that evaluation paused on a breakpoint. The user can continue to enter
+expressions into the \acrshort{ghci} prompt, these will be evaluated
+independently by newly forked threads. These can also hit breakpoints and wake
+the server thread, which notifies the \acrshort{ui} again. None of this
+interferes with the initial \texttt{eval} thread, because every forked
+\texttt{eval} thread gets a new pair of status and breakpoint mutable
+variables. The user may resume execution in the \acrshort{ui}, which messages
+the server thread, which in turn fills the appropriate \hsIdent{breakMVar},
+waking the \texttt{eval} thread and blocking on \hsIdent{statusMVar} once
+again.
 
 \subsection*{Bytecode generation}
 The bytecode facilities of \acrshort{ghc} involve a detour from the typical
 sequence of steps performed to transform Haskell sources all the way to a form
 suitable for linking or execution. After desugaring, the program is transformed
-directly into bytecode instructions\footnote{Note that this approach will soon
-be replaced by a new bytecode pipeline which follows the usual compilation
-process all the way to \acrshort{stg}\citationNeeded.}. Optimisations
-implemented in the simplifier are not performed. \acrshort{ghci} is intended
-for interactive evaluation and favours fast, iterative development over runtime
-performance, making the naive code generation approach a reasonable choice.
+directly into bytecode instructions\footnote{
+	As previously mentioned, this approach will soon be replaced by a new
+	bytecode pipeline which follows the usual compilation process all the way
+	to \acrshort{stg}\cite{mr-ghci-stg-unboxed}.
+}. Optimisations implemented in the simplifier are not performed.
+\acrshort{ghci} is intended for interactive evaluation and favours fast,
+iterative development over runtime performance, making the naive code
+generation approach a reasonable choice.
 
 Every top-level definition, every scrutinee of a \hsCode{case} expression, and
 every right-hand side of a non-trivial \hsCode{let} expression are compiled to
@@ -1096,9 +1088,9 @@ less-than and equality tests, two instructions for invoking the C
 \acrshort{ffi}, an explicit stack check instruction, and others. The wide
 variety of instructions of a shared or similar purpose, particularly in the
 case of stack pushes, is the consequence of distinguishing between the
-representation of their arguments -- arguments can be pointers subject to
-garbage collection, word-sized integers, 64bit integers, floating point and
-double precision numbers, etc.
+representation of their arguments. These can be pointers subject to garbage
+collection, word-sized integers, 64bit integers, floating point and double
+precision numbers, etc.
 
 There is one particular instruction that catches the eye: \texttt{BRK\_FUN}.
 The bytecode generator places \texttt{BRK\_FUN} instructions at the very
@@ -1107,9 +1099,9 @@ breakpoints, though they are only relevant when the user has ``placed'' a
 breakpoint at a position in the source code. Alas, ``placing'' breakpoints is
 something of an illusion, the instructions are pervasive and every breakpoint
 has a numeric identifier assigned at compilation time. The introduction of a
-new breakpoint in the \acrshort{ghci} UI simply sets a flag in a breakpoint
-bitmap, enabling the corresponding breakpoint instruction from the perspective
-of the interpreter.
+new breakpoint in the \acrshort{ghci} \acrshort{ui} simply sets a flag in a
+breakpoint bitmap, enabling the corresponding breakpoint instruction from the
+perspective of the interpreter.
 
 
 \subsection*{The bytecode interpreter}
@@ -1127,13 +1119,15 @@ the overhead of returning from the interpretation loop and entering the
 closure. To handle other types of closures, the interpreter returns to the
 scheduler, setting a field in the \acrshort{tso} which indicates that execution
 should proceed with machine code evaluation when the thread is woken again.
-If the top of the stack contains \todo{\ldots}
 
-Interpretation of byte code works simply by case analysis on the current
-instruction.
+If the stack is set up for a \acrshort{bco} application with a
+\texttt{RET\_BCO} closure below a bytecode object with its arguments, the
+interpreter executes the \acrshort{bco} instructions. Interpretation of byte
+code works simply by case analysis on the current instruction.
 
 \subsection*{The debugger}
 \todo{this needs an update now that the previous subsections were rewritten}
+\todo{doesn't work with \texttt{-fexternal-interpreter}}
 \todo{don't forget to mention the feature where you can print the runtime
 values of things while paused at a breakpoint}
 
@@ -1156,9 +1150,9 @@ breakpoint is enabled, the interpreter pauses execution at this point.
 
 Pausing on a breakpoint is quite an involved action. The interpreter prepares
 to call an ``IO action,'' which is a Haskell function invoked to resume
-\acrshort{ghci}'s UI thread by filling the shared mutable variable. This
-preparation saves the top stack frame to a new closure, a pointer to which is
-passed to the IO action. The stack is then set up to call the IO action, and
+\acrshort{ghci}'s \acrshort{ui} thread by filling the shared mutable variable.
+This preparation saves the top stack frame to a new closure, a pointer to which
+is passed to the IO action. The stack is then set up to call the IO action, and
 the interpreter returns to the scheduler in order to perform the call.
 
 At no point is the instruction pointer persisted -- the progress of evaluation
@@ -1174,8 +1168,51 @@ functionality of breakpoints. We introduce \textit{trace\-points}, a simpler
 variant of breakpoints which uses the communication channel between the server
 and \texttt{eval} threads to pause evaluation at every breakable expression.
 
+The compiler features a generic approach to \acrshort{ast} annotations via the
+\hsType{Tickish} type. Values of the \hsType{Tickish} data structure are called
+\textit{ticks} and appear both in the surface syntax and in the Core language.
+\nameref{sec:hpc} functionality, profiling, and breakpoints are all implemented
+as ticks annotating Haskell expressions. The compiler includes scoping rules
+for ticks, these specify how closely should a particular tick stick to the
+expression it annotates, which is important for optimisations.
+
+Profiling ticks and breakpoints are added to the Core program during the
+desugaring phase. Breakpoint ticks capture the free variables of the expression
+they annotate. When the interpreter pauses at a breakpoint and sets up the
+stack to call the \acrshort{ghci} breakpoint IO action, it saves the top stack
+frame\footnote{That is, the portion of the stack referenced by the just entered
+\acrshort{bco}. The size of the stack frame is determined from the
+\acrshort{bco}'s bitmap, which indicates the pointerhood of its arguments /
+free variables.} into a stack application closure. A pointer to the closure is
+passed to the IO action and then messaged to the UI. This lets the debugger
+print out the values of free variables at the site of a breakpoint.
+
+Tracepoints are equivalent to breakpoints, except that they do not need to
+support nested breakpoint hits. Our motivation for introducing a breakpoint
+analogy was to open room for future extensions while preserving the
+functionality of breakpoints. Tracepoints share the \hsIdent{breakMVar} with
+breakpoints. Besides the communication channel between the server and the
+\texttt{eval} threads, most of the changes necessary for tracepoints are simple
+duplications of the existing breakpoint infrastructure.  We add a new
+constructor for \hsType{Tickish} which represents a tracepoint, a new bytecode
+instruction \texttt{TRC\_FUN}, a new status message for tracepoint hits, and
+the accompanying code throughout \acrshort{ghci}. Modifications to the module
+abstractions are not necessary because tracepoints do not need to be enabled or
+disabled -- the interpreter should stop at each and every one.
+
+We modify the \acrshort{ui} such that when a tracepoint is hit, all the values
+of the free variables of the corresponding expressions are logged to a trace
+file. Evaluation then immediately resumes without pausing to let the user enter
+any commands.
+
 \subsection*{Summary}
-\todo{\ldots}
+The tracepoint approach could be extended and improved in many ways. For
+example, we could tighten the loop between the interpreter and the reaction to
+a tracepoint encounter. There is no good reason why it should have to route
+through the \acrshort{ui}. Nevertheless, our evaluation of the outlined
+solution points to significant problems. The resulting trace does not contain
+enough information to make useful conclusions about the strictness of the
+functions involved. \todo{wrap this up}
 
 
 \section{The compiler plugin approach}
@@ -1192,9 +1229,8 @@ in the order of the trace events.
 
 It is this function-call-specific state that becomes difficult to express
 without high-level information about the program structure at hand, as was the
-case with the \acrshort{ghci} approach described in section
-\ref{sec:using-ghci} \todo{maybe ``the previous section?'' Susceptible to
-problems when reordering though}.
+case with the \acrshort{ghci} approach described in Section
+\ref{sec:using-ghci}.
 
 \subsection*{Adding state}
 \todo{A manual introduction of state into the program is rather trivial\ldots}
@@ -1234,28 +1270,28 @@ rewriting process itself and the build process of the program, which the user
 of our tool would have to deal with. Furthermore, true implementation
 agnosticism of the tracing framework would require compiler-independent support
 for inspection of the Haskell heap, for which no solution seems to exist at the
-time of writing\todo{right?}. A less general but more ergonomic way of
-rewriting source code is via \acrshort{ghc}'s \textit{source plugins}, which
-hook directly into the compiler pipeline and can operate on the surface-level
-syntax at different stages.
+time of writing. A less general but more ergonomic way of rewriting source code
+is via \acrshort{ghc}'s \textit{source plugins}, which hook directly into the
+compiler pipeline and can operate on the surface-level syntax at different
+stages.
 
 \subsubsection*{Source plugins}
 Source plugins\cite{ghc-source-plugins} are a relatively recently introduced
 feature of \acrshort{ghc}. Compiler source plugins are Haskell packages which
-invoke the \acrshort{ghc} API\todo{same as UI, I suppose?} to hook into the
-compiler pipeline and modify the compiled program at various stages of the
-front-end. Unlike Core plugins\citationNeeded, which operate on the internal
-language, source plugins deal with the entirety of Haskell's surface syntax.
+invoke the \acrshort{ghc} \acrshort{api} to hook into the compiler pipeline and
+modify the compiled program at various stages of the front-end. Unlike Core
+plugins\cite{ghc-compiler-plugins}, which operate on the internal language,
+source plugins deal with the entirety of Haskell's surface syntax.
 
 Rather than parsing, transforming, and serialising the source code separately
 to the compilation step, we can design a plugin that performs the required
 source transformations in the compiler pipeline directly. We introduce two
-tracing functions, \hsIdent{traceEntry} and \hsIdent{traceArg}, into the
-current module. We then rewrite the source program to call \hsIdent{traceEntry}
-every time a function in the program is invoked and we thread every reference
-to a function's argument through \hsIdent{traceArg}. This introduces the
-opportunity to inspect the runtime representations of the arguments passed to a
-function when the result of the function is under scrutiny.
+tracing functions, \hsIdent{traceEntry} and \hsIdent{traceArg}. We then rewrite
+the source program to call \hsIdent{traceEntry} every time a function in the
+program is invoked and we thread every reference to a function's argument
+through \hsIdent{traceArg}. This introduces the opportunity to inspect the
+runtime representations of the arguments passed to a function when the result
+of the function is under scrutiny.
 
 We can determine the strictness properties of a transformed function from the
 calls it makes to the tracing utilities. If we record a call to a (transformed)
@@ -1385,12 +1421,11 @@ specific versions of it already installed as the project quickly adapts to use
 new language extensions, the management of \acrshort{ghc} versions on a
 Unix-like system with a system-wide package manager can be difficult. To ease
 the management of installed versions and enable quick switching between them,
-the \texttt{ghcup} tool\cite{ghcup} has been developed.  \todo{this will need
-some more citations} \texttt{ghcup} lets the \acrshort{ghc} developer quickly
-install and switch between the releases of not only \acrshort{ghc} itself, but
-also Cabal, the Haskell build system and dependency manager, and the
-\acrfull{hls}, an \acrshort{lsp}-compliant language server providing
-Haskell-specific editor integration features.
+there is the \texttt{ghcup} tool\cite{ghcup}. \texttt{ghcup} lets the
+\acrshort{ghc} developer quickly install and switch between the releases of not
+only \acrshort{ghc} itself, but also Cabal, the Haskell build system and
+dependency manager, and the \acrfull{hls}, an \acrshort{lsp}-compliant language
+server providing Haskell-specific editor integration features.
 
 The build system bootstraps the self-hosting compiler in several steps. The
 \acrshort{ghc} provided by the system is referred to as the \textbf{stage 0}
