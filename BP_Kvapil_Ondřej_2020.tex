@@ -235,27 +235,19 @@ them. The \acrfull{ghc} implements Haskell's non-strict semantics by lazy
 evaluation facilitated mainly by a runtime data structure called a
 \textit{thunk}, which represents delayed computations.
 
-\todo{rewrite the following (repetitive use of ``although'', laziness is only
-an implementation technique)}
-
-Although necessary for an efficient implementation of non-strict semantics as
-required by the Haskell spec\cite{haskell2010}, laziness leads to many issues with
-runtime behaviour of Haskell programs. The accumulation of thunks at runtime is
+Laziness leads to many issues with runtime behaviour of Haskell programs,
+although it is an efficient implementation of non-strict semantics as required
+by the Haskell spec\cite{haskell2010}. The accumulation of thunks at runtime is
 a frequent cause of pathological memory behaviour and unpredictable
 performance. There is a number of libraries and tools which aim to help the
 Haskell programmer inspect the runtime state of the Haskell heap, force the
 evaluation of thunks known to be forced by the program at a later point anyway,
 and avoid their creation altogether for certain expressions.
 
-Among the surveyed approaches to the inspection and management of thunks were
-the following:
-\begin{itemize}
-	\item Hoed
-	\item \hackage{nothunks}
-	\item Hat
-	\item \hackage{htrace}
-	\item \hackage{ghc-heap-view}
-\end{itemize}
+We surveyed several debuggers and solutions for the inspection and management
+of thunks. We found no existing tools that would directly capture enough
+information to be suitable for dynamic tracing and strictness analysis, but two
+came close (\nameref{sec:hat} and \nameref{sec:ghc-heap-view}).
 
 
 \section{The Glasgow Haskell Compiler} \label{sec:ghc}
@@ -442,12 +434,14 @@ translated to \acrshort{llvm} bit code and additionally processed by the
 
 A notable divergence in the compiler is the bytecode compilation pipeline.
 Bytecode is executed by the \acrshort{rts} interpreter, the backbone of
-\acrshort{ghc}'s interactive interface, which we will discuss in Chapter
-\ref{sec:analysis-design}. The bytecode pipeline does not involve
-optimisations, the conversion to \acrshort{stg}, or any later passes. Instead,
-the separate generator translates Core directly to bytecode instructions,
-although this is about to change in \acrshort{ghc} 9.2
-\cite{mr-ghci-stg-unboxed}.
+\acrshort{ghc}'s interactive interface (\acrshort{ghci}). \acrshort{ghci}
+includes a debugger which can pause and resume the evaluation of an interpreted
+Haskell program and print the runtime values of local bindings. We will discuss
+\acrshort{ghci} in greater detail in Chapter \ref{sec:analysis-design}. The
+bytecode pipeline does not involve optimisations, the conversion to
+\acrshort{stg}, or any later passes. Instead, the separate generator translates
+Core directly to bytecode instructions, although this is about to change in
+\acrshort{ghc} 9.2 \cite{mr-ghci-stg-unboxed}.
 
 \subsubsection*{Compiler plugins}
 Both the front end and the back end of the compiler can be modified or extended
@@ -678,11 +672,11 @@ unnecessary laziness which are small enough not to cause substantial problems
 could hide in the compiled program. It is a part of the motivation behind this
 thesis to lay the groundwork necessary for their detection.
 
-\todo{summary?}
-
 \section{Existing tools} \label{sec:existing-tools}
-Several tools related to tracing are available.
-\todo{...}
+Apart from functionality implemented in the compiler itself, the Haskell
+environment includes a number of practical solutions to help with debugging. A
+few of these deal specifically with the issues with laziness that Haskell
+programmers have to face.
 
 \subsection*{Hoed} \label{sec:hoed}
 Hoed\cite{gh-hoed} is a tracer and a debugger for Haskell. Unlike the built-in
@@ -691,15 +685,17 @@ Users of Hoed manually annotate functions of interest to make the tracer
 capture relevant information during execution. The annotations are simply calls
 to the provided debugging function \hsIdent{observe} with a signature similar
 to that of the \hsIdent{trace} function from the \hsModule{Debug.Trace} module
-of Haskell's standard library, hiding unsafe IO. \hsIdent{observe} has type
-\hsSignature{Observable a => Text -> a -> a}, its \hsType{Text} argument has to
-equal the name of the function being annotated. The \hsType{Observable}
-constraint on \hsType{a} is used by Hoed internally, the typeclass has a
-default implementation. The resulting trace of the debugging session is exposed
-via a web-based interface, to which the users connect with a regular web
-browser. Hoed's traces include information about which functions have been
-called during the execution of the annotated program and what were their
-arguments. It only collects information about annotated functions.
+of Haskell's standard library. Both \hsIdent{trace} and \hsIdent{observe}
+circumvent the guarantees of the type system and are in fact impure.
+\hsIdent{observe} has type \hsType{Observable a => Text -> a -> a}, its
+\hsType{Text} argument has to equal the name of the function being annotated.
+The \hsType{Observable} constraint on \hsType{a} is used by Hoed internally,
+the typeclass has a default implementation. The resulting trace of the
+debugging session is exposed via a web-based interface, to which the users
+connect with a regular web browser. Hoed's traces include information about
+which functions have been called during the execution of the annotated program
+and what were their arguments. It only collects information about annotated
+functions.
 
 Hoed features several tools to help users analyse problems with their code and
 find the culprits of test failures. One of these is \textit{algorithmic
@@ -711,11 +707,9 @@ debugger'' ultimately reports the faults it located.
 
 While Hoed's approach to debugging is certainly interesting and quite far
 removed from the concept of debuggers in other languages, it lacks any kind of
-awareness of the low-level details of non-strictness. This is perhaps due to
-the fact that it was implemented at a time when it was generally believed that
-competing implementations of Haskell will emerge\citationNeeded.  Hoed is thus
-intended for use with property testers like QuickCheck\citationNeeded, and not
-as a tool for the identification and resolution of language implementation
+awareness of the low-level details of non-strictness. Hoed is thus intended for
+use with property testers like QuickCheck\cite{quickcheck-paper}, and not as a
+tool for the identification and resolution of language implementation
 -dependent issues, such as memory leaks.
 
 
@@ -733,16 +727,15 @@ context of the thunk which the library function detected, guiding the
 programmer in locating the unexpectedly lazy code or data structure. The
 library also allows various relaxations to the strictness of its inspection
 policy, such as the \hsType{OnlyCheckWhnf} and \hsType{AllowThunk}
-\hsCode{newtype}s. Thanks to GHC Generics\citationNeeded, \hackage{nothunks}
-also offers the convenient \hsCode{deriving (Generic, NoThunks)} syntax to add
-instances of the necessary typeclasses for custom data structures
-automatically.
-% TODO mention that nothunks works wonders for dealing with memory leaks, but
-%     is aimed primarily at avoiding thunks altogether, not at their close
-%     inspection or something like strictness analysis.
+\hsCode{newtype}s. Thanks to \hsModule{GHC.Generics}\cite{ghc-generics},
+\hackage{nothunks} also offers the convenient \hsCode{deriving (Generic,
+NoThunks)} syntax to add instances of the necessary typeclasses for custom data
+structures automatically.
 
-% TODO do look into the mechanism by which nothunks actually checks for thunks,
-%      however
+The \hackage{nothunks} package can greatly help fix serious memory leaks caused
+by thunk accumulation. However, it is intended primarily for the complete
+removal of thunks from the runtime state of a program, and does not help with
+careful strictness analysis.
 
 \subsection*{Hat} \label{sec:hat}
 The Haskell Tracer Hat\cite{proj-hat} is a source-level tracer. It works by
@@ -755,40 +748,35 @@ reduction the program performed. Hat comes with a number of utilities for
 exploring the trace files, including some forms of forward and backward
 debugging, filtering utilities which show all arguments passed to top-level
 functions, virtual stack traces, and even an interactive tool for locating
-errors in a program, similar to one of the features of Hoed.
+errors in a program, similar to one of the features of \nameref{sec:hoed}.
 
-\todo{Rewrite comment into text, scratch the paragraphs below}
-% TODO so initially it was developed for the nhc compiler, gaining Haskell 98
-% features and GHC support later on. The history of haskell paper
-% https://dl.acm.org/doi/pdf/10.1145/1238844.1238856 has more info on this in
-% section 10.4.2. Even in its prime time (?) it wasn't recognised as a useful
-% tool, despite its many features.
+Hat was initially developed for the \texttt{nhc} Haskell
+compiler\cite{hat-history}. It centred around the idea of using a single, rich
+trace of a program's execution to support several different kinds of debugging.
+Despite its advanced features, it did not seem to attract many
+users\cite{hat-history}, possibly due to feature disparities between the
+supported syntax and new language extensions.
 
-The architectural decisions of Hat reflect the environment it originated in,
-which unfortunately differs substantially from the current status quo. Its
-source-to-source model of operation makes it compatible with various Haskell
-compilers,
+Hat's source-to-source translation makes it portable between different
+compilers. The project uses the \hackage{haskell-src-exts} package to parse the
+language, rather than relying \eg on the \acrshort{ghc} \acrshort{api}. While
+Hat cannot directly answer questions about the strictness of debugged
+functions, its approach to rewriting the source language is interesting.
+Tracing necessarily leads to runtime overhead, but the code produced by Hat is
+subject to compiler optimisations. Hat therefore does not need to worry about
+low-level details of the optimiser and how it reorders, splits and combines
+expressions. The connection between the tracing code and the original source is
+maintained thanks to the semantics-preserving nature of optimisations.
 
-
-The Glasgow Haskell Compiler is the most widely used Haskell compiler
-\citationNeeded with many language extensions beyond Haskell 2010. In 2009,
-\acrshort{ghc} became the official compiler of the Haskell
-Platform\cite{haskell-platform}, further cementing its monopoly as the primary
-implementation of the language.
-
-Hat uses the \hackage{haskell-src-exts} package to parse the source language.
-
-% TODO \texttt{haskell-src-exts} DOES NOT lack feature parity with GHC
-% TODO oblivious to laziness, implementation-agnostic
 
 \subsection*{\hackage{htrace}} \label{sec:htrace}
 \hackage{htrace} \cite{hkg-htrace} is a simple package which exports a single
-function: \hsSignature{htrace :: String -> a -> a}. As the name and function
+function: \hsCode{htrace :: String -> a -> a}. As the name and function
 signature suggest, this function mirrors the behaviour of the standard
-\hsIdent{trace}, except that when displaying the tracing messages,
-\hackage{htrace} shows them hierarchically indented based on the current call
-depth. It works simply by manipulating a global mutable variable and hiding
-this fact from the user with \hsIdent{unsafePerformIO}.
+\hsIdent{trace}, except that \hsIdent{htrace} hierarchically indents the
+tracing messages based on the current call depth. It works simply by
+manipulating a global mutable variable and hiding this fact from the user with
+\hsIdent{unsafePerformIO}.
 
 Although very simple and oblivious to any laziness implementation details, this
 approach is still useful for debugging purposes. The indented tracing messages
@@ -806,12 +794,6 @@ bindings to express sharing. There are also tree and graph data structures for
 heap mapping and a high-level algebraic data type for all Haskell closures,
 complete with their info tables.
 
-\todo{to-do
-\begin{itemize}
-	\item explain trade-offs with those that need code changes (typeclass-based)
-	\item explain problems with approaches independent of \acrshort{ghc}
-\end{itemize}
-}
 
 \subsection*{Haskell Program Coverage} \label{sec:hpc}
 \acrlong{hpc}\cite{hpc-paper} is (unsurprisingly) a code coverage tool for
