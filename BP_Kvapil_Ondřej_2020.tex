@@ -679,7 +679,7 @@ few of these deal specifically with the issues with laziness that Haskell
 programmers have to face.
 
 \subsection*{Hoed} \label{sec:hoed}
-Hoed\cite{gh-hoed} is a tracer and a debugger for Haskell. Unlike the built-in
+Hoed\cite{gh-hoed} is a tracer and debugger for Haskell. Unlike the built-in
 debugger of \acrshort{ghci}, Hoed is implemented as a regular Haskell library.
 Users of Hoed manually annotate functions of interest to make the tracer
 capture relevant information during execution. The annotations are simply calls
@@ -974,7 +974,7 @@ building blocks from which \acrshort{ghci} is composed, starting with an
 overview of how they fit together.
 
 \subsection*{The life of an interpreted expression}
-\acrshort{ghci} can either serve as a \acrshort{repl} interface, processing
+\acrshort{ghci} can serve either as a \acrshort{repl} interface, processing
 expressions one by one, or as an alternative compilation and execution
 environment for entire modules. These two modes can be freely mixed. The
 backbone of \acrshort{ghci} is a modified \acrshort{ghc} pipeline which
@@ -992,7 +992,7 @@ These features are transparent to the user, who manipulates \acrshort{ghci} via
 its user interface. The \acrshort{ui} is implemented separately from the core
 functionality and communicates with the \acrshort{ghci} library code via
 message-passing. This separation allows the \acrshort{ui} and the library code,
-which is in charge of interpreted evaluation, run in different processes.
+which is in charge of interpreted evaluation, to run in different processes.
 \acrshort{ghci} features a mode of operation called ``Remote \acrshort{ghci},''
 in which the \acrshort{ui} and the interpreter communicate over a pipe. Remote
 \acrshort{ghci} is useful for situations where the capabilities and heap object
@@ -1102,10 +1102,11 @@ The interpreter looks at the top of the stack to decide what to do. If it finds
 a closure, it inspects its type. Most closures are evaluated by
 \textit{entering}, that is, execution jumps to their entry code. For some types
 of closures (such as indirections), the interpreter includes shortcuts to avoid
-the overhead of returning from the interpretation loop and entering the
-closure. To handle other types of closures, the interpreter returns to the
-scheduler, setting a field in the \acrshort{tso} which indicates that execution
-should proceed with machine code evaluation when the thread is woken again.
+the overhead of returning from the interpretation loop to the scheduler and
+entering the closure. To handle other types of closures, the interpreter
+returns to the scheduler, setting a field in the \acrshort{tso} which indicates
+that execution should proceed with machine code evaluation when the thread is
+woken again.
 
 If the stack is set up for a \acrshort{bco} application with a
 \texttt{RET\_BCO} closure below a bytecode object with its arguments, the
@@ -1113,11 +1114,6 @@ interpreter executes the \acrshort{bco} instructions. Interpretation of byte
 code works simply by case analysis on the current instruction.
 
 \subsection*{The debugger}
-\todo{this needs an update now that the previous subsections were rewritten}
-\todo{doesn't work with \texttt{-fexternal-interpreter}}
-\todo{don't forget to mention the feature where you can print the runtime
-values of things while paused at a breakpoint}
-
 A notable feature of \acrshort{ghci} is its debugger, which allows the
 programmer to place breakpoints on certain expressions in their code. The
 interpreter then pauses execution when it is about to evaluate an expression
@@ -1136,10 +1132,12 @@ checks whether it is already returning from a breakpoint (via a flag in the
 breakpoint is enabled, the interpreter pauses execution at this point.
 
 Pausing on a breakpoint is quite an involved action. The interpreter prepares
-to call an ``IO action,'' which is a Haskell function invoked to resume
-\acrshort{ghci}'s \acrshort{ui} thread by filling the shared mutable variable.
-This preparation saves the top stack frame to a new closure, a pointer to which
-is passed to the IO action. The stack is then set up to call the IO action, and
+to call a ``breakpoint IO action,'' a Haskell function invoked to resume
+\acrshort{ghci}'s server thread by filling the shared mutable variable. A
+pointer to this function is kept in a global variable in the \acrshort{rts} and
+updated from the Haskell side via \acrshort{ffi}. The preparation for an IO
+action call saves the top stack frame to a new closure, a pointer to which is
+passed to the IO action. The stack is then set up to call the IO action, and
 the interpreter returns to the scheduler in order to perform the call.
 
 At no point is the instruction pointer persisted -- the progress of evaluation
@@ -1148,6 +1146,20 @@ breakpoint. This is acceptable, as the bytecode generator makes sure to only
 put \texttt{BRK\_FUN} instructions at the very start of bytecode objects and
 the \acrshort{tso} flag ensures that a just-visited breakpoint is not stopped
 at again.
+
+When stopped at a breakpoint, the user can still evaluate expressions at the
+\acrshort{ghci} prompt. It is thus possible to encounter another breakpoint
+while stopped at a breakpoint or to hit the same breakpoint multiple times,
+without ever resuming paused evaluation. The debugger maintains a stack of
+contexts which makes this possible.
+
+Additionally, the \acrshort{repl} has access to the free variables in the
+paused expression. The \texttt{:print} command lets the user print the values
+of the free variables without forcing their evaluation, binding thunks to fresh
+variables. The \texttt{:force} command does the same, except that it forces the
+evaluation of the reference it is applied to. These commands are available even
+when not stopped at a breakpoint, but become especially useful when stepping
+through a program.
 
 \subsection*{Trace\-points}
 Our design for dynamic tracing via \acrshort{ghci} builds on the existing
@@ -1175,31 +1187,32 @@ passed to the IO action and then messaged to the UI. This lets the debugger
 print out the values of free variables at the site of a breakpoint.
 
 Tracepoints are equivalent to breakpoints, except that they do not need to
-support nested breakpoint hits. Our motivation for introducing a breakpoint
-analogy was to open room for future extensions while preserving the
-functionality of breakpoints. Tracepoints share the \hsIdent{breakMVar} with
-breakpoints. Besides the communication channel between the server and the
-\texttt{eval} threads, most of the changes necessary for tracepoints are simple
-duplications of the existing breakpoint infrastructure.  We add a new
-constructor for \hsType{Tickish} which represents a tracepoint, a new bytecode
-instruction \texttt{TRC\_FUN}, a new status message for tracepoint hits, and
-the accompanying code throughout \acrshort{ghci}. Modifications to the module
-abstractions are not necessary because tracepoints do not need to be enabled or
-disabled -- the interpreter should stop at each and every one.
+support nested hits. Our motivation for introducing a breakpoint analogy was to
+open room for future extensions while preserving the functionality of
+breakpoints. Tracepoints share the \hsIdent{breakMVar} with breakpoints.
+Besides the communication channel between the server and the \texttt{eval}
+threads, most of the changes necessary for tracepoints are simple duplications
+of the existing breakpoint infrastructure.  We add a new constructor for
+\hsType{Tickish} which represents a tracepoint, a new bytecode instruction
+\texttt{TRC\_FUN}, a new IO action, a new status message for tracepoint hits,
+and the accompanying code throughout \acrshort{ghci}. Modifications to the
+module abstractions are not necessary because tracepoints do not need to be
+enabled or disabled -- the interpreter should stop at each and every one.
 
 We modify the \acrshort{ui} such that when a tracepoint is hit, all the values
 of the free variables of the corresponding expressions are logged to a trace
-file. Evaluation then immediately resumes without pausing to let the user enter
-any commands.
+file. Evaluation then immediately resumes without pause.
 
 \subsection*{Summary}
 The tracepoint approach could be extended and improved in many ways. For
 example, we could tighten the loop between the interpreter and the reaction to
 a tracepoint encounter. There is no good reason why it should have to route
-through the \acrshort{ui}. Nevertheless, our evaluation of the outlined
-solution points to significant problems. The resulting trace does not contain
-enough information to make useful conclusions about the strictness of the
-functions involved. \todo{wrap this up}
+through the \acrshort{ui}. We could also replace the built-in \texttt{:print}
+command with \nameref{sec:ghc-heap-view} and perform additional analysis of the
+runtime values while stopped at a tracepoint. Nevertheless, our evaluation of
+the outlined solution points to significant problems. The resulting trace does
+not contain enough information to make useful conclusions about the strictness
+of the functions involved. \todo{wrap this up}
 
 
 \section{The compiler plugin approach}
@@ -1233,13 +1246,13 @@ monad in order to perform side-effecting computations.
 Since rewriting functions into a monadic form would be a difficult undertaking,
 we prefer the way of unsafe features. Integer counters are enough for call
 identification purposes, so we choose to keep one counter per function. All
-counters can be stored in a single mutable map, which associates
+counters can be stored in a single mutable map indexed by function names.
+Unsafe functions in the standard prelude can also be used to persist tracing
+information to a file.
 
 \todo{
 to-dos:
 \begin{itemize}
-	\item describe the general idea of the source plugin
-	\item explain the use of SYB
 	\item explain the use of TH and splicing
 	\item explain how the global mutable map resides in the plugin's module
 	\item explain the difficulty of trying to implement similar functionality
@@ -1250,7 +1263,7 @@ to-dos:
 Equipped with a means of introducing benign side-effects into programs for
 tracing purposes, we are in search of a way of rewriting source code to put
 these side-effects to use. One plausible approach would be direct source code
-rewriting, akin to \nameref{sec:hat}. As described in section
+rewriting, akin to \nameref{sec:hat}. As described in Section
 \ref{sec:existing-tools}, source-to-source transformations have the benefit of
 generality, but also the downside of additional complexity in both the
 rewriting process itself and the build process of the program, which the user
@@ -1280,27 +1293,63 @@ through \hsIdent{traceArg}. This introduces the opportunity to inspect the
 runtime representations of the arguments passed to a function when the result
 of the function is under scrutiny.
 
-We can determine the strictness properties of a transformed function from the
-calls it makes to the tracing utilities. If we record a call to a (transformed)
-top-level function \hsCode{f :: Int -> Int -> Int} defined as \hsCode{f x y =
-...} via \hsIdent{traceEntry} but no calls to \hsIdent{traceArg}, the
-function makes no use of any of its arguments, and is therefore non-strict in
-both of them. Examples of functions of this behaviour include \hsCode{f x y =
-3}, \hsCode{f x y = undefined}, or \hsCode{f x y = f x y}. Note that the latter
-example references the arguments on the \acrshort{rhs}, but these references are
-never evaluated. If a call to \hsIdent{f} is followed by a call to
-\hsIdent{traceArg} for the \hsIdent{x} argument, but the program terminates and
-no calls to \hsIdent{traceArg} for the \hsIdent{y} argument occur, we say that
-\hsIdent{f} is strict in \hsIdent{x} and \textit{potentially non-strict} in
-\hsIdent{y}. \hsIdent{f} could be non-strict in \hsIdent{y}, but it could also
-conditionally require \hsIdent{y} to be evaluated based on the value of
-\hsIdent{x}. The property of a multi-argument function being strict in one
-argument if another argument matches a predicate (and being non-strict in that
-argument otherwise) is what makes the interpretation of traces of nested
-functions tricky.
+We can determine some of the strictness properties of a transformed function
+from the calls it makes to the tracing utilities. If we record a call to a
+(transformed) top-level function \hsCode{f :: Int -> Int -> Int} defined as
+\hsCode{f x y = ...} via \hsIdent{traceEntry} but no calls to
+\hsIdent{traceArg}, the function makes no use of any of its arguments, and is
+therefore non-strict in both of them. Examples of functions of this behaviour
+include \hsCode{f x y = 3}, \hsCode{f x y = undefined}, or \hsCode{f x y = f x
+y}. Note that the latter example references the arguments on the
+\acrshort{rhs}, but these references are never evaluated. If a call to
+\hsIdent{f} is followed by a call to \hsIdent{traceArg} for the \hsIdent{x}
+argument, but the program terminates and no calls to \hsIdent{traceArg} for the
+\hsIdent{y} argument occur, we say that \hsIdent{f} is strict in \hsIdent{x}
+and \textit{potentially lazy} in \hsIdent{y}. \hsIdent{f} could be lazy in
+\hsIdent{y}, but it could also conditionally require \hsIdent{y} to be
+evaluated based on the value of \hsIdent{x}. The property of a multi-argument
+function being strict in one argument if another argument matches a predicate
+(and being non-strict in that argument otherwise) is what makes the
+interpretation of traces of nested functions tricky.
+
+More interesting cases arise with types which can contain thunks themselves --
+their \acrlong{whnf} differs from their normal form. Consider \hsCode{g :: Int
+-> [Int]} (defined as \hsCode{g x = ...}). We could observe entries of
+\hsIdent{g} to be always followed by evaluations of \hsIdent{x}. This does not
+mean that \hsIdent{g} is necessarily strict in \hsIdent{x}, because the
+evaluations we have observed may simply happen to be immediately followed by
+evaluations of \hsIdent{g}'s return value beyond \acrshort{whnf}. This is the
+case in Listing \ref{lst:list-generator}.
+
+\begin{listing}[h]
+	\centering
+	\begin{minted}[autogobble]{haskell}
+		g :: Int -> [Int]
+		g x = [x]
+
+		main = print . g $ 2 + 2
+	\end{minted}
+	\caption{Deep evaluation of an applied lazy function.}
+	\label{lst:list-generator}
+\end{listing}
+
+However, a decisive analysis of the strictness of a function is not the point
+of dynamic tracing. We wish to understand the use of laziness in practice. We
+are interested not only in whether a function used its argument at all, but
+also in \textit{how many} calls it did so. We would like to learn \eg whether
+there are lazy functions which are only invoked in a strict manner (akin to the
+use of \hsIdent{g} in Listing \ref{lst:list-generator}), or invoked in a strict
+manner most of the time\footnote{
+	For small functions like the one in our example, inlining will take care of
+	eliminating unnecessary laziness. For larger functions, inlining may not
+	help, or the strictness analysis may be too conservative to eliminate
+	unnecessary overhead.
+}. The relationships between the values of arguments in a single function call
+are instrumental in providing the context necessary for the interpretation of
+tracing results.
 
 \subsection*{Rewriting the \acrshort{ast}}
-Armed with the necessary tracing functions and a plan on how to apply them, we
+Armed with the impure tracing functions and a plan on how to apply them, we
 move on to the problem of syntax tree transformation. The \hsModule{GhcPlugins}
 module\cite{hkg-ghcplugins} of the \acrshort{ghc} \acrshort{api} includes the
 necessary functions to hook into the compiler pipeline. A source plugin can
