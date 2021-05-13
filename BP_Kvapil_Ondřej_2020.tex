@@ -1201,7 +1201,8 @@ enabled or disabled -- the interpreter should stop at each and every one.
 
 We modify the \acrshort{ui} such that when a tracepoint is hit, all the values
 of the free variables of the corresponding expressions are logged to a trace
-file. Evaluation then immediately resumes without pause.
+file. We also save accompanying timing information and the corresponding
+location in the source file. Evaluation then resumes without pause.
 
 \subsection*{Summary}
 The tracepoint approach could be extended and improved in many ways. For
@@ -1209,13 +1210,34 @@ example, we could tighten the loop between the interpreter and the reaction to
 a tracepoint encounter. There is no good reason why it should have to route
 through the \acrshort{ui}. We could also replace the built-in \texttt{:print}
 command with \nameref{sec:ghc-heap-view} and perform additional analysis of the
-runtime values while stopped at a tracepoint. Nevertheless, our evaluation of
-the outlined solution points to significant problems. The resulting trace does
-not contain enough information to make useful conclusions about the strictness
-of the functions involved. \todo{wrap this up}
+runtime values while stopped at a tracepoint.
 
+Nevertheless, our evaluation of the outlined solution points to significant
+problems. The resulting trace does not contain enough information to make
+useful inferences about the strictness properties of the code. The problem
+seems to be that with nested thunks, evaluation does not follow a single
+logical thread, but rather ``skips around'' depending on the demands made on
+the delayed computations. The hard-to-predict, gradual normalisation of values
+makes it prohibitively difficult to relate different trace entries. The context
+in which a trace record originated is not guaranteed to be the same for the
+previous or the following record.
 
-\section{The compiler plugin approach}
+These problems could be overcome by introducing state into the tracing
+framework. It would be enough to mirror the tree-like hierarchy of
+subexpressions in the source code with tokens which would relate them at
+runtime, similarly to how \nameref{sec:htrace} uses a simple mutable counter to
+track nested calls. Unfortunately, the bytecode pipeline and interpreter offer
+no good point of extension for adding said state. Introducing impurities in the
+Core program is difficult and error-prone. The bytecode generator and
+interpreter are both too far removed from the source program and would require
+sizeable changes to accommodate the sort of functionality we would hope for.
+
+The \acrshort{ghci} approach has other downsides as well. The current bytecode
+pipeline lacks support for some language extensions and interpretation is much
+slower than execution of machine code. These issues are not as problematic as
+the low utility of the tracing results, however.
+
+\section{Using compiler plugins}
 To produce useful tracing output, a dynamic tracing framework must capture
 interesting events during a program's evaluation and relate them to one
 another. In particular, the evaluation of function arguments must be clearly
@@ -1228,20 +1250,19 @@ between function calls and argument evaluations, which are no longer implicit
 in the order of the trace events.
 
 It is this function-call-specific state that becomes difficult to express
-without high-level information about the program structure at hand, as was the
+without high-level information about the program structure at hand, as is the
 case with the \acrshort{ghci} approach described in Section
 \ref{sec:using-ghci}.
 
 \subsection*{Adding state}
-\todo{A manual introduction of state into the program is rather trivial\ldots}
-
-Fortunately, function-call-specific state can be easily introduced into the
-source program, simply as local variables. It suffices to keep a unique
-identifier of the particular function call that the argument evaluation traces
-can refer to. Such a unique identifier necessarily needs to change with every
-function call. In clean Haskell code without unsafe features, this is
-impossible in general, as the language requires the use of the \hsType{IO}
-monad in order to perform side-effecting computations.
+Fortunately, introduction of function-call-specific state is rather trivial.
+The source program can simply be rewritten to store the state in local
+variables. It suffices to keep a unique identifier of the particular function
+call that the argument evaluation traces can refer to. Such a unique identifier
+necessarily needs to change with every function call. In clean Haskell code
+without unsafe features, this is impossible in general, as the language
+requires the use of the \hsType{IO} monad in order to perform side-effecting
+computations.
 
 Since rewriting functions into a monadic form would be a difficult undertaking,
 we prefer the way of unsafe features. Integer counters are enough for call
@@ -1249,16 +1270,6 @@ identification purposes, so we choose to keep one counter per function. All
 counters can be stored in a single mutable map indexed by function names.
 Unsafe functions in the standard prelude can also be used to persist tracing
 information to a file.
-
-\todo{
-to-dos:
-\begin{itemize}
-	\item explain the use of TH and splicing
-	\item explain how the global mutable map resides in the plugin's module
-	\item explain the difficulty of trying to implement similar functionality
-		in a core plugin instead
-\end{itemize}
-}
 
 Equipped with a means of introducing benign side-effects into programs for
 tracing purposes, we are in search of a way of rewriting source code to put
@@ -1760,29 +1771,90 @@ suitable for further analysis.
 		\hsIdent{logt} then simply reads the \hsType{IORef}, appends tracing
 		data to the file, and flushes the handle, to avoid problems with lazy
 		IO and prevent data loss when the program exits.
-
 \end{description}
 
+The types \hsType{Bind}, \hsType{RHS}, and \hsType{LExpr} are aliases for the
+more verbose structures of the surface syntax.
+
 \subsection*{Using the plugin}
-Applying a source plugin in the compilation pipeline of \acrshort{ghc} is
+Applying a compiler plugin in the pipeline of \acrshort{ghc} is
 straightforward: it suffices to pass a command-line option \texttt{-fplugin}
 set to the name of the module which exports the plugin definition. Multiple
-source plugins can be specified at once by passing more than one
-\texttt{-fplugin} option, the compiler applies them in the order they are
-defined\footnote{Still subject primarily to the order of phases in the
-pipeline, but ordered according to the succession of command-line arguments to
-avoid ambiguities.}. To make the module visible to the compiler, it has to be
-installed in \acrshort{ghc}'s package database, which can be achieved with the
-help of the Cabal command \mintinline{bash}{cabal install --lib} ran in the
-plugin's directory.
+plugins can be specified at once by passing more than one \texttt{-fplugin}
+option, the compiler applies them in the order they are defined\footnote{
+	Still subject primarily to the order of phases in the pipeline, but ordered
+	secondarily according to the succession of command-line arguments to avoid
+	ambiguities.
+}. To make the module visible to the compiler, it has to be installed in
+\acrshort{ghc}'s package database. Installation is simply a matter of executing
+the Cabal command \mintinline{bash}{cabal install --lib} in the plugin's
+directory.
 
 \todo{\ldots}
 
+\subsection*{Shortcomings}
+Our implementation work does not include all the transformations required to
+perform the perfect rewriting as illustrated in Listing
+\ref{lst:qsort-perfect}. Instead, it performs a simplified transformation which
+neither separates variable binding from destructuring nor untangles nested
+pattern matches. Due in part to limitations in Template Haskell, \hsCode{let}
+bindings of call counters do not include bang patterns. Several styles of
+pattern definitions are also unsupported. A notable omission is the support for
+the popular \hsCode{do} notation, commonly used when working with monads.
 
+The plugin unfortunately suffers from a bug caused by the traversal scheme used
+in the rewriting transformation. The error stems from the way the call counter
+variables are referred to in the stateful computation.  When the traversal
+exits a lambda, it should restore the call counter reference to that of the
+surrounding context. This does not happen because \acrshort{syb} does not offer
+a way of detecting this step. In effect, the plugin inserts undefined
+references to code of certain shapes, crashing the compiler during desugaring.
+Fixing this bug in the scope of \acrshort{syb} is challenging, because the
+monadic transformation proceeds sequentially through the syntax tree.
+
+Despite these issues, we feel that the design laid out and partially
+implemented in this work is suitable for dynamic tracing. All of the
+shortcomings listed above are implementation problems which can be addressed in
+future work. Handling of \hsCode{do} notation can be implemented via
+source-level desugaring, mirroring the work of the desugaring phase of the
+compiler. This is in fact the technique already implemented by
+\nameref{sec:hat}. The traversal issue can similarly be fixed by the choice of
+another generic programming library better suited for monadic tree operations,
+or by replacing the generic programming approach with another. The remaining
+deficiencies have straightforward solutions and could be alleviated with more
+time.
+
+One simple but necessary improvement to the implementation is changing the
+representation of names in the trace. The examples and our implementation uses
+strings, which can lead to name clashes. However, \acrshort{ghc} assigns
+globally unique identifiers to all names. During compilation, the plugin should
+produce a table associating fully qualified names to their numeric identifiers.
+The trace can then refer to functions and arguments with integers instead.
+
+It remains to be seen whether the choice of rewriting after the typechecking
+phase supports the future extensions. It may be easier to perform some
+transformations without the annotations introduced by the typechecker right
+after the renaming phase, or even right after parsing.
 
 \setsecnumdepth{part}
 \chapter{Conclusion}
-...
+
+This thesis aimed to design and implement a scalable dynamic tracing framework
+for Haskell. Although the implementation does not support all of Haskell
+syntax, the design allows for great scalability thanks to tight integration
+with the \acrlong{ghc}. Tracing is added by rewriting the syntax trees of
+source programs. The traced programs produce recordings of function call and
+argument evaluations in \acrshort{csv} format, suitable for subsequent
+analysis.
+
+\section*{Future work}
+Our work is only the beginning of the journey towards understanding the
+practical implications of laziness. The compiler plugin we developed needs to
+be finalised and extended before it can start recording data on real world
+programs without modification. After incorporating these fixes, it can support
+large-scale collection of traces, providing the empirical evidence for use in a
+future study.
+
 
 \bibliography{./bibliography/bbl.bib}
 \bibliographystyle{./styles/iso690.bst}
