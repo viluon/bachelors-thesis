@@ -152,9 +152,9 @@
 }
 \placeForDeclarationOfAuthenticity{Prague}
 \keywordsCS{Haskell, dynamické trasování, líné vyhodnocování, zásuvné moduly
-kompilátorů, generické programování}
+kompilátorů, generické programování, GHC}
 \keywordsEN{Haskell, dynamic tracing, lazy evaluation, compiler plugins,
-generic programming}
+generic programming, GHC}
 \declarationOfAuthenticityOption{4} %select as appropriate, according to the desired license (integer 1-6)
 % \website{http://site.example/thesis} %optional thesis URL
 
@@ -1649,8 +1649,7 @@ Our source plugin consists of four modules.
 		expressions constructed by the plugin,
 	\item \hsModule{Logging}, which defines the tracing functions that we
 		compile into source programs, and
-	\item \hsModule{Rewriting}, where the magic happens. \todo{perhaps
-		unprofessional}
+	\item \hsModule{Rewriting}, where the magic happens.
 \end{itemize}
 
 The \hsModule{TracingPlugin} module simply defines and exports a
@@ -1943,21 +1942,18 @@ future study.
 \printglossary[type=\acronymtype]
 
 
-\chapter{Contents of enclosed CD}
+\chapter{Contents of enclosed SD card}
 
-\todo{figure out what to do about this}
 %change appropriately
-
-\begin{figure}
+\begin{figure}[h]
 	\dirtree{%
 		.1 readme.txt\DTcomment{the file with CD contents description}.
-		.1 exe\DTcomment{the directory with executables}.
 		.1 src\DTcomment{the directory of source codes}.
-		.2 wbdcm\DTcomment{implementation sources}.
+		.2 examples\DTcomment{example programs for use with the plugin}.
+		.2 plugin\DTcomment{implementation sources}.
 		.2 thesis\DTcomment{the directory of \LaTeX{} source codes of the thesis}.
 		.1 text\DTcomment{the thesis text directory}.
 		.2 thesis.pdf\DTcomment{the thesis text in PDF format}.
-		.2 thesis.ps\DTcomment{the thesis text in PS format}.
 	}
 \end{figure}
 
