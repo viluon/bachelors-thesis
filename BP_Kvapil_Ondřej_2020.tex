@@ -41,6 +41,7 @@
 \usepackage{tabularx}
 \usepackage{ragged2e}
 \usepackage{booktabs}
+\usepackage{microtype}
 \usepackage[numbers]{natbib}
 \usepackage[htt]{hyphenat}
 \usepackage{xparse,minted}
@@ -66,7 +67,7 @@
 \newcommand{\blind}[1][1]{\textcolor{gray}{\Blindtext[#1][1]}}
 \newcommand{\citationNeeded}{\textcolor{red}{\textbf{[citation needed]}}}
 \newcommand{\hackage}[1]{\texttt{#1}}
-\newcommand{\hsSignature}[1]{\texttt{#1}}
+\newcommand{\hsSignature}[1]{\hsCode{#1}}
 \newcommand{\hsPat}[1]{\texttt{#1}}
 \newcommand{\hsType}[1]{\texttt{#1}}
 \newcommand{\hsIdent}[1]{\texttt{#1}}
@@ -176,6 +177,52 @@ Conventional programming languages of all paradigms use -- almost equivocally
 implications on the design of a language~\cite{haskell-is-pure} and comes with
 both benefits in expressiveness and implementation challenges.
 
+The non-strict semantics of the Haskell language were a guiding principle which
+influenced or directly determined many of the decisions made at its
+inception~\cite{history-of-haskell}. Lazy evaluation is a potentially powerful
+implementation strategy for non-strict languages, freeing the programmer to
+focus on what a program means rather than on how it is computed. Laziness
+naturally accommodates user-defined control flow and evaluates only the
+required subset of a given program in a demand-driven manner. However, the
+implementation of non-strict features via laziness in \acrshort{ghc} brings
+many pitfalls which Haskell programmers need to deal with. Automatic avoidance
+of unnecessary thunk allocations is conservative~\cite{cmtary-demand-analysis}:
+if \acrshort{ghc} is unable to prove the strictness of a function in an
+argument by static strictness analysis, the function will remain lazy, possibly
+leading to pathological memory behaviour at runtime.
+
+Haskell code is pure\footnote{
+	Unless it uses unsafe facilities of the language.
+}, \ie functions in Haskell correspond closely to mathematical functions and do
+not have side-effects. To perform side-effects, Haskell programs include pure
+descriptions of effectful computations, built in a compositional way via the
+\hsType{IO} monad. When a Haskell program is invoked, the runtime evaluates the
+description called \hsIdent{main}. The strong static type system provides a
+compile-time distinction between pure and effectful code and ensures the two
+cannot be mixed in an impure way. All computation in Haskell is triggered by
+the demand for the value of an expression, starting with \hsIdent{main}.
+
+\begin{listing}[h]
+	\centering
+	\begin{minted}[autogobble]{haskell}
+		length []     = 0
+		length (_:xs) = 1 + length xs
+	\end{minted}
+	\caption{A naive implementation of list length.}
+	\label{lst:length}
+\end{listing}
+
+When Haskell evaluates an expression, it does so to the least extent possible.
+For example, take the list \hsCode{ys = [fact 5, fact 6, fact 7]} of three
+values of the factorial function. Evaluation of the function applications is delayed by
+storing the necessary data in runtime structures called \textit{thunks}. When
+we apply the function \hsIdent{length} (defined in Listing \ref{lst:length}) to
+\hsIdent{ys} and force the value of the application, \eg by printing it to
+standard output, the function pattern-matches on the \hsIdent{ys} value. Case
+analysis requires the value to be in \textit{\acrfull{whnf}}. An expression is
+said to be in weak head normal form if it has been evaluated to the outermost
+data constructor (such as \hsIdent{:} or \hsIdent{[]}) or lambda abstraction.
+
 \begin{listing}[h]
 	\centering
 	\begin{minted}[autogobble]{haskell}
@@ -202,21 +249,16 @@ both benefits in expressiveness and implementation challenges.
 	\label{lst:let-x}
 \end{listing}
 
-Lazy evaluation is a potentially powerful implementation strategy
-for non-strict languages, freeing the programmer to focus on what a program
-means rather than on how it is computed. Laziness naturally accommodates
-user-defined control flow and evaluates only the required subset of a given
-program in a demand-driven manner. The non-strict semantics of the Haskell
-language were a guiding principle which influenced or directly determined many
-of the decisions made at its inception~\cite{history-of-haskell}. However, the
-implementation of non-strict features via laziness in \acrshort{ghc} brings
-many pitfalls which Haskell programmers need to deal with. Automatic avoidance
-of unnecessary thunk allocations is conservative~\cite{cmtary-demand-analysis}:
-if \acrshort{ghc} is unable to prove the strictness of a function in an
-argument by static strictness analysis, the function will remain lazy, possibly
-leading to pathological memory behaviour at runtime.
+For an example of how useful laziness is in Haskell, consider Listing
+\ref{lst:let-x}. The binding \hsIdent{foo} evaluates efficiently to the
+integer~3, but not until its value is required for the evaluation of another
+computation.
 
-\todo{bridge this gap}
+\todo{explain the listing}
+\todo{(weak head) normal form}
+
+Haskell lets the programmer explicitly force expressions to \acrshort{whnf}
+with the function \hsSignature{seq :: a -> b -> b}.
 
 This fight against the semantics is detrimental to the developer experience of
 the language. The question arises whether the benefits of laziness outweigh the
@@ -898,18 +940,18 @@ information during the execution of entire programs.
 
 \chapter{Analysis and design} \label{sec:analysis-design}
 
-\todo{opening to this chapter}
-
-\section{Approach} \label{sec:approach}
-
 The goal of this work is to design and implement a tool suitable for
 understanding how is laziness used in real-life Haskell programs. To analyse
 the practical implications of \acrshort{ghc}'s implementation of non-strict
 semantics, we have to understand the strictness properties of functions. For
-example, some arguments may be evaluated if and only if others are. The tool
+example, some arguments may be evaluated if and only if others are. Our tool
 must capture these dependencies and usage patterns, as they may uncover both
 use cases where laziness is essential and places where it could be safely
-avoided, even though static analysis cannot determine so.
+avoided, even though static analysis cannot determine so. In this chapter, we
+focus on the task of dynamic tracing and evaluate two possible solutions to the
+problem.
+
+\section{Approach} \label{sec:approach}
 
 Dynamically inferring the strictness properties of functions requires a peek
 under the hood of Haskell's runtime machinery. Typical Haskell code is
@@ -935,10 +977,9 @@ tracing with compiler plugins.
 
 \section{Using \acrshort{ghci}} \label{sec:using-ghci}
 The bytecode compilation pipeline and the interpreter offer a refreshing break
-from the comparative complexity of \acrshort{ghc}'s back end. Unlike the
-\acrshort{rts} linked to a program compiled to object code\todo{unclear}, the
-interpreter is at the perfect level of abstraction to directly track
-evaluations of thunks and the stream of control flow in a program.
+from the comparative complexity of \acrshort{ghc}'s back end. The interpreter
+is at the perfect level of abstraction to directly track evaluations of
+interpreted functions and the stream of control flow in a program.
 
 One of the issues with this approach that is clear from the outset is the range
 of supported language extensions. The bytecode compiler and the interpreter
@@ -1365,28 +1406,27 @@ constructing renamed \acrshortpl{ast} avoids this issue, at the expense of
 either working with abstract identifiers, or invoking a renaming phase
 manually.
 
-\todo{fix \texttt{\textbackslash citeauthor}}
-As \citeauthor{blog-source-plugins}'s introduction to source plugins shows, the
-costs associated with the construction of syntax trees later in the pipeline
-are not prohibitive~\cite{blog-source-plugins}. The \acrshort{ghc}
-\acrshort{api} exports high-level functions which let the plugin author take
-trees from parsed to renamed to typechecked in only a few lines of code.
-Moreover, the plugin author can use the quasi\-quoting
-features~\cite{th-quasiquoting} of Template Haskell~\cite{th-classic} to greatly
-simplify the construction of expressions. The quasi\-quoting facilities even
-manage references to definitions in the scope of the plugin's source code
-automatically. Common patterns in the expressions created by the plugin can be
-included as regular top-level definitions in the plugin's module or in a module
-the plugin depends on and spliced into the syntax tree. With these high-level
-features in mind, the suitable injection mechanisms for a dynamic tracing
-source plugin seem to be before and after typechecking. We only discuss the
-latter approach in the following text, even though a source plugin operating on
-the renamed \acrshort{ast} would likely be very similar. Note that the
-\acrshort{api} makes no hard distinction between the different approaches to
-pipeline extensions. Indeed, a source plugin simply provides a value of the
-\hsType{Plugin} data type, overriding the appropriate fields of a default
-plugin implementation with monadic functions. A source plugin could run custom
-code after each of the front end stages.
+As Pickering's introduction to source plugins shows, the costs associated with
+the construction of syntax trees later in the pipeline are not
+prohibitive~\cite{blog-source-plugins}. The \acrshort{ghc} \acrshort{api}
+exports high-level functions which let the plugin author take trees from parsed
+to renamed to typechecked in only a few lines of code.  Moreover, the plugin
+author can use the quasi\-quoting features~\cite{th-quasiquoting} of Template
+Haskell~\cite{th-classic} to greatly simplify the construction of expressions.
+The quasi\-quoting facilities even manage references to definitions in the
+scope of the plugin's source code automatically. Common patterns in the
+expressions created by the plugin can be included as regular top-level
+definitions in the plugin's module or in a module the plugin depends on and
+spliced into the syntax tree. With these high-level features in mind, the
+suitable injection mechanisms for a dynamic tracing source plugin seem to be
+before and after typechecking. We only discuss the latter approach in the
+following text, even though a source plugin operating on the renamed
+\acrshort{ast} would likely be very similar. Note that the \acrshort{api} makes
+no hard distinction between the different approaches to pipeline extensions.
+Indeed, a source plugin simply provides a value of the \hsType{Plugin} data
+type, overriding the appropriate fields of a default plugin implementation with
+monadic functions. A source plugin could run custom code after each of the
+front end stages.
 
 The actual process of rewriting the right-hand sides of function definitions
 involves the data types for the surface syntax of Haskell, which has hundreds
@@ -1665,13 +1705,13 @@ differently.
 
 \begin{description}
 	\item[\hsCode{collectFunInfo :: Bind -> StateT WrapperState TcM Bind}]
-		pattern-matches on the various sorts of bindings that can appear in an
-		\acrshort{ast} and extracts the names of the named ones, saving them to
-		the \hsType{WrapperState} context, thus providing the name of the
+		pattern-\\matches on the various sorts of bindings that can appear in
+		an \acrshort{ast} and extracts the names of the named ones, saving them
+		to the \hsType{WrapperState} context, thus providing the name of the
 		innermost named function to the other transformations.
 
 	\item[\hsCode{incrementCC :: RHS -> StateT WrapperState TcM RHS}]
-		pattern-matches on right-hand sides of functions and introduces calls
+		pattern-matches \\on right-hand sides of functions and introduces calls
 		to the tracing function \hsIdent{traceEntry} using \acrfull{th}.
 		Calling \hsIdent{traceEntry} with a function name increments a global
 		call counter for that function and returns the counter's current value.
@@ -1696,16 +1736,14 @@ differently.
 		\hsType{WrapperState}.
 
 	\item[\hsCode{wrapRef :: LExpr -> StateT WrapperState TcM LExpr}]
-		pattern-matches on references to function arguments in function bodies.
-		Its purpose is to transform every argument reference into a call to
-		\hsIdent{traceArg}.
-
-		\todo{fix \texttt{\textbackslash hsCode} overflows}
+		pattern-matches \\on references to function arguments in function
+		bodies. Its purpose is to transform every argument reference into a
+		call to \hsIdent{traceArg}.
 
 		To identify references to function arguments, \hsIdent{wrapRef}
-		consults the \hsCode{boundVars :: [Id]} collection. This collection is built
-		independently of the \hsIdent{wrapRef} transformation, since it needs
-		no function-specific information. We rely on the fact that while
+		consults the \hsCode{boundVars :: [Id]} collection. This collection is
+		built independently of the \hsIdent{wrapRef} transformation, since it
+		needs no function-specific information. We rely on the fact that while
 		references to bindings are semantically valid only in local
 		(lexically-scoped) contexts, they have globally unique identifiers.
 		Collecting the identifiers of function arguments is thus a simple task
