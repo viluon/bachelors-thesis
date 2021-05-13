@@ -120,9 +120,6 @@
 \newacronym{whnf}{WHNF}{Weak Head Normal Form}
 
 
-% hyphenation
-\hyphenation{front-end}
-
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
 % EDIT THIS
 % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
@@ -300,11 +297,11 @@ a pipeline that consists of the following phases:
 		for further processing by the \acrshort{llvm} toolchain.
 \end{description}
 
-\subsubsection*{Compiler frontend}
-Phases of the pipeline from parsing to desugaring form the compiler frontend.
+\subsubsection*{Compiler front end}
+Phases of the pipeline from parsing to desugaring form the compiler front end.
 It starts out with a textual representation and gradually transforms it into
-increasingly structured data before passing it on to the backend. During this
-process, the frontend identifies and reports all errors in the user's code.
+increasingly structured data before passing it on to the back end. During this
+process, the front end identifies and reports all errors in the user's code.
 
 As the program flows through the pipeline, its invariants gradually change. The
 codebase reflects this by passing different data types from phase to phase. The
@@ -312,7 +309,7 @@ types of the nodes of the surface syntax tree are indexed by an uninhabited
 type \hsType{GhcPass}, which is itself indexed by the \hsType{Pass} data type
 (i.e. \hsType{GhcPass} has kind \hsType{Pass -> *}), lifted to the type level.
 Together, the \hsType{GhcPass} types represent the various phases of the
-compiler frontend, from parsing to renaming to type checking. The type level
+compiler front end, from parsing to renaming to type checking. The type level
 distinction between phases complicates the type signatures of almost all
 functions in the pipeline, but the choice comes with important benefits.
 First, indexing \acrshort{ast} types by the \hsType{GhcPass} types provides a
@@ -428,7 +425,7 @@ corresponds to programs of an abstract graph reduction machine, the
 translated again to the low-level imperative language \texttt{Cmm}, a dialect
 of C$--$, before entering one of the final stages of the code generation phase.
 A successful run of the compiler typically terminates in \acrshort{ghc}'s
-built-in native code back\-end, but the \texttt{Cmm} representation can be
+built-in native code back end, but the \texttt{Cmm} representation can be
 translated to \acrshort{llvm} bit code and additionally processed by the
 \acrshort{llvm} pipeline.
 
@@ -949,7 +946,7 @@ tracing with compiler plugins.
 
 \section{Using \acrshort{ghci}} \label{sec:using-ghci}
 The bytecode compilation pipeline and the interpreter offer a refreshing break
-from the comparative complexity of \acrshort{ghc}'s backend. Unlike the
+from the comparative complexity of \acrshort{ghc}'s back end. Unlike the
 \acrshort{rts} linked to a program compiled to object code\todo{unclear}, the
 interpreter is at the perfect level of abstraction to directly track
 evaluations of thunks and the stream of control flow in a program.
@@ -1290,7 +1287,7 @@ stages.
 Source plugins\cite{ghc-source-plugins} are a relatively recently introduced
 feature of \acrshort{ghc}. Compiler source plugins are Haskell packages which
 invoke the \acrshort{ghc} \acrshort{api} to hook into the compiler pipeline and
-modify the compiled program at various stages of the front-end. Unlike Core
+modify the compiled program at various stages of the front end. Unlike Core
 plugins\cite{ghc-compiler-plugins}, which operate on the internal language,
 source plugins deal with the entirety of Haskell's surface syntax.
 
@@ -1399,7 +1396,7 @@ the renamed \acrshort{ast} would likely be very similar. Note that the
 pipeline extensions. Indeed, a source plugin simply provides a value of the
 \hsType{Plugin} data type, overriding the appropriate fields of a default
 plugin implementation with monadic functions. A source plugin could run custom
-code after each of the frontend stages.
+code after each of the front end stages.
 
 The actual process of rewriting the right-hand sides of function definitions
 involves the data types for the surface syntax of Haskell, which has hundreds
@@ -1850,10 +1847,10 @@ analysis.
 \section*{Future work}
 Our work is only the beginning of the journey towards understanding the
 practical implications of laziness. The compiler plugin we developed needs to
-be finalised and extended before it can start recording data on real world
-programs without modification. After incorporating these fixes, it can support
-large-scale collection of traces, providing the empirical evidence for use in a
-future study.
+be finalised and extended before it can start recording data on unmodified real
+world programs. After incorporating these fixes, it can support large-scale
+collection of traces, providing the empirical evidence for use in a future
+study.
 
 
 \bibliography{./bibliography/bbl.bib}
