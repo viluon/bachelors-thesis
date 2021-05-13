@@ -191,9 +191,9 @@ if \acrshort{ghc} is unable to prove the strictness of a function in an
 argument by static strictness analysis, the function will remain lazy, possibly
 leading to pathological memory behaviour at runtime.
 
-Haskell code is pure\footnote{
+Haskell code is pure,\footnote{
 	Unless it uses unsafe facilities of the language.
-}, \ie functions in Haskell correspond closely to mathematical functions and do
+} \ie functions in Haskell correspond closely to mathematical functions and do
 not have side-effects. To perform side-effects, Haskell programs include pure
 descriptions of effectful computations, built in a compositional way via the
 \hsType{IO} monad. When a Haskell program is invoked, the runtime evaluates the
@@ -313,10 +313,10 @@ of C code linked into every compiled program). \acrshort{rts} provides
 low-overhead runtime support for facilities abstracted over by Haskell code
 such as garbage collection, exception handling, or concurrency primitives.
 
-The compiler turns Haskell source code to object and interface files\footnote{
-These describe high-level information about a compiled module, including data
-type definitions and in\-line\-able functions.}. The process is organised in
-a pipeline that consists of the following phases:
+The compiler turns Haskell source code to object and interface files.\footnote{
+	These describe high-level information about a compiled module, including
+	data type definitions and in\-line\-able functions.
+} The process is organised in a pipeline that consists of the following phases:
 
 \begin{description}
 	\item[Parsing] constructs abstract syntax trees. Lexical and syntactical
@@ -697,14 +697,14 @@ high-performance code or dealing with unacceptable space leaks. It is further
 reasonable not to expect the average Haskell programmer to know the internals
 of the compiler well enough to ask it for the Core representation of their
 program, or indeed to be aware at all of the existence of demand signatures,
-which are only described in the \acrshort{ghc} Commentary\footnote{
+which are only described in the \acrshort{ghc} Commentary.\footnote{
 	The commentary is intended for \acrshort{ghc} developers and is hosted on a
 	GitLab instance (online), unlike the User's Guide which is bundled with the
 	\acrshort{ghc} distribution and revised for every release.
-}. Perhaps it would be interesting to include the strictness information
+} Perhaps it would be interesting to include the strictness information
 inferred by the compiler in interfaces programmers often interact with, such as
-the various widgets provided by the \acrfull{hls} \cite{gh-hls}, but
-to our knowledge no such tool exists at the time of writing.
+the various widgets provided by the \acrfull{hls}~\cite{gh-hls}, but to our
+knowledge no such tool exists at the time of writing.
 
 In theory, the \acrlong{ghc}'s optimisations are advanced enough to compile the
 majority of Haskell code fairly efficiently, without space leaks or allocation
@@ -1077,11 +1077,11 @@ again.
 The bytecode facilities of \acrshort{ghc} involve a detour from the typical
 sequence of steps performed to transform Haskell sources all the way to a form
 suitable for linking or execution. After desugaring, the program is transformed
-directly into bytecode instructions\footnote{
+directly into bytecode instructions.\footnote{
 	As previously mentioned, this approach will soon be replaced by a new
 	bytecode pipeline which follows the usual compilation process all the way
 	to \acrshort{stg}\cite{mr-ghci-stg-unboxed}.
-}. Optimisations implemented in the simplifier are not performed.
+} Optimisations implemented in the simplifier are not performed.
 \acrshort{ghci} is intended for interactive evaluation and favours fast,
 iterative development over runtime performance, making the naive code
 generation approach a reasonable choice.
@@ -1206,12 +1206,14 @@ Profiling ticks and breakpoints are added to the Core program during the
 desugaring phase. Breakpoint ticks capture the free variables of the expression
 they annotate. When the interpreter pauses at a breakpoint and sets up the
 stack to call the \acrshort{ghci} breakpoint IO action, it saves the top stack
-frame\footnote{That is, the portion of the stack referenced by the just entered
-\acrshort{bco}. The size of the stack frame is determined from the
-\acrshort{bco}'s bitmap, which indicates the pointerhood of its arguments /
-free variables.} into a stack application closure. A pointer to the closure is
-passed to the IO action and then messaged to the UI. This lets the debugger
-print out the values of free variables at the site of a breakpoint.
+frame\footnote{
+	That is, the portion of the stack referenced by the just entered
+	\acrshort{bco}. The size of the stack frame is determined from the
+	\acrshort{bco}'s bitmap, which indicates the pointerhood of its arguments /
+	free variables.
+} into a stack application closure. A pointer to the closure is passed to the
+IO action and then messaged to the UI. This lets the debugger print out the
+values of free variables at the site of a breakpoint.
 
 Tracepoints are equivalent to breakpoints, except that they do not need to
 support nested hits. Our motivation for introducing a breakpoint analogy was to
@@ -1378,12 +1380,12 @@ are interested not only in whether a function used its argument at all, but
 also in \textit{how many} calls it did so. We would like to learn \eg whether
 there are lazy functions which are only invoked in a strict manner (akin to the
 use of \hsIdent{g} in Listing \ref{lst:list-generator}), or invoked in a strict
-manner most of the time\footnote{
+manner most of the time.\footnote{
 	For small functions like the one in our example, inlining will take care of
 	eliminating unnecessary laziness. For larger functions, inlining may not
 	help, or the strictness analysis may be too conservative to eliminate
 	unnecessary overhead.
-}. The relationships between the values of arguments in a single function call
+} The relationships between the values of arguments in a single function call
 are instrumental in providing the context necessary for the interpretation of
 tracing results.
 
@@ -1530,9 +1532,9 @@ latter variant of \acrshort{rts} runs in a single operating system thread. When
 exploring \acrshort{ghci}, we developed a custom build flavour which built the
 \acrshort{rts} with the debugging variant of the threaded way. There are still
 some issues with the Hadrian \acrshort{rts} build process, which means the
-configuration has to include more ways than necessary\footnote{
+configuration has to include more ways than necessary.\footnote{
 	\url{https://gitlab.haskell.org/ghc/ghc/-/issues/17814}
-}.
+}
 
 After the initial build, the \textbf{stage 1} compiler can be \textit{frozen}
 by passing a command-line option to the build system on subsequent invocations.
@@ -1841,11 +1843,11 @@ Applying a compiler plugin in the pipeline of \acrshort{ghc} is
 straightforward: it suffices to pass a command-line option \texttt{-fplugin}
 set to the name of the module which exports the plugin definition. Multiple
 plugins can be specified at once by passing more than one \texttt{-fplugin}
-option, the compiler applies them in the order they are defined\footnote{
+option, the compiler applies them in the order they are defined.\footnote{
 	Still subject primarily to the order of phases in the pipeline, but ordered
 	secondarily according to the succession of command-line arguments to avoid
 	ambiguities.
-}. To make the module visible to the compiler, it has to be installed in
+} To make the module visible to the compiler, it has to be installed in
 \acrshort{ghc}'s package database. Installation is simply a matter of executing
 the Cabal command \mintinline{bash}{cabal install --lib} in the plugin's
 directory.
