@@ -139,9 +139,9 @@
 	plugin for the \acrlong{ghc}.
 }
 \abstractCS{
-	Haskell je jeden z nejznámějších případů jazyka s non-strict sémantikou.
-	Na jednu stranu přináší tato sémantika pohodlí nekonečných datových
-	struktur, řídících konstrukcí definovaných uživatelem a možnost vyhnout se
+	Haskell je jeden z nejznámějších jazyků s non-strict sémantikou. Na jednu
+	stranu přináší tato sémantika pohodlí nekonečných datových struktur,
+	řídících konstrukcí definovaných uživatelem a možnost vyhnout se
 	nepotřebným výpočtům. Na stranu druhou jsou tyto výhody postiženy daní na
 	výkonu za běhu programu a těžko předvídatelným chováním call-by-need.
 	Nabízí se otázka: \emph{Vyplatí se líná evaluace?} K zodpovězení této
@@ -313,10 +313,11 @@ language. The project consists of three major components: (1) the compiler
 itself, (2) the boot libraries (a collection of core libraries \acrshort{ghc}
 itself depends on), and (3) the \acrlong{rts} (\acrshort{rts}, a large library
 of C code linked into every compiled program). \acrshort{rts} provides
-low-overhead runtime support for facilities abstracted over by Haskell code
+low-overhead runtime support for facilities abstracted away by Haskell code
 such as garbage collection, exception handling, or concurrency primitives.
 
-The compiler turns Haskell source code to object and interface files.\footnote{
+The compiler turns Haskell source code into object and interface
+files.\footnote{
 	These describe high-level information about a compiled module, including
 	data type definitions and in\-line\-able functions.
 } The process is organised in a pipeline that consists of the following phases:
@@ -326,10 +327,10 @@ The compiler turns Haskell source code to object and interface files.\footnote{
 		errors are reported here.
 	\item[Renaming] resolves identifiers into fully qualified names. Undefined
 		references are reported here. The renaming phase re\-associates
-		operator applications in the \acrshort{ast} formed during parsing, this
+		operator applications in the \acrshort{ast} formed during parsing. This
 		is because Haskell allows specifying the precedence and associativity
-		of infix operators, but their properties are only available after
-		their references have been resolved.
+		of infix operators, but their properties are only available after their
+		references have been resolved.
 	\item[Typechecking] verifies the program's type-correctness. Type checking
 		annotates all binders in the program with type signatures.  Type errors
 		are reported here.
@@ -341,7 +342,7 @@ The compiler turns Haskell source code to object and interface files.\footnote{
 		specialisation, and others.
 	\item[Conversion to \acrshort{stg}] translates Core to the language of the
 		\acrlong{stg}, suitable for code generation.
-	\item[Code generation] produces machine code or \acrshort{llvm} bit code
+	\item[Code generation] produces machine code or \acrshort{llvm} bitcode
 		for further processing by the \acrshort{llvm} toolchain.
 \end{description}
 
@@ -372,7 +373,7 @@ invented specifically to add extensibility to \acrshort{ghc}'s abstract syntax
 data types. The basic algorithm for making a data type extensible is as
 follows:
 \begin{enumerate}
-	\item index the data type of choice by a type parameter $\xi$, called the
+	\item Index the data type of choice by a type parameter $\xi$, called the
 		\textit{extension descriptor},
 		\begin{center}
 			\hsCode{data D = ...} $\rightarrow$ \hsCode{data D &$\xi$& = ...}
@@ -436,8 +437,8 @@ underlying flexible data type.
 For an in-depth description of the design pattern, its generalisations to
 multiple type parameters, existentials, \acrshortpl{gadt}, hierarchies of
 extension descriptors, as well as relations to generic programming,
-typeclasses, and for many other practically useful details, we recommend the
-publication introducing the idea~\cite{trees-that-grow}.
+typeclasses, and for many other practically useful details, we
+recommend~\cite{trees-that-grow}, which introduces the idea.
 
 Although the Trees that Grow pattern is not used universally throughout the
 \acrshort{ghc} project, its concepts play an important role in many of the core
@@ -454,9 +455,9 @@ Essentially, it is a variant of System F extended with type equality
 coercions~\cite{system-fc}.
 
 Although Core is typed, the compiler only type checks Core programs if the user
-explicitly asks for it. Core types exist mostly to validate the internal
-consistency of the compiler -- desugaring a Haskell program which passed
-typechecking into incorrectly typed Core would be a compiler bug.
+explicitly asks for it. Core types exist mostly to validate the compiler's
+internal consistency -- desugaring a Haskell program that passed typechecking
+into incorrectly typed Core would be a compiler bug.
 
 Most of the optimisation passes \acrshort{ghc} performs are local
 semantics-pre\-serv\-ing transformations of Core (Core-to-Core passes) which
@@ -474,7 +475,7 @@ translated again to the low-level imperative language \texttt{Cmm}, a dialect
 of C$--$, before entering one of the final stages of the code generation phase.
 A successful run of the compiler typically terminates in \acrshort{ghc}'s
 built-in native code back end, but the \texttt{Cmm} representation can be
-translated to \acrshort{llvm} bit code and additionally processed by the
+translated to \acrshort{llvm} bitcode and additionally processed by the
 \acrshort{llvm} pipeline.
 
 A notable divergence in the compiler is the bytecode compilation pipeline.
@@ -482,7 +483,7 @@ Bytecode is executed by the \acrshort{rts} interpreter, the backbone of
 \acrshort{ghc}'s interactive interface (\acrshort{ghci}). \acrshort{ghci}
 includes a debugger which can pause and resume the evaluation of an interpreted
 Haskell program and print the runtime values of local bindings. We will discuss
-\acrshort{ghci} in greater detail in Chapter \ref{sec:analysis-design}. The
+\acrshort{ghci} in greater detail in Chapter~\ref{sec:analysis-design}. The
 bytecode pipeline does not involve optimisations, the conversion to
 \acrshort{stg}, or any later passes. Instead, the separate generator translates
 Core directly to bytecode instructions, although this is about to change in
@@ -495,7 +496,7 @@ core plugins on the back end and source plugins on the front
 end~\cite{ghc-source-plugins}. The former act on the Core language and are best
 suited for optimisations, while high level analyses, language extensions and
 code generation are better handled by the latter. We will discuss source
-plugins in more detail in chapter~\ref{sec:analysis-design}.
+plugins in more detail in Chapter~\ref{sec:analysis-design}.
 
 \subsubsection*{\acrlong{rts}}
 The runtime system consists of about 50,000 lines of C and C$--$ code. It
@@ -641,7 +642,7 @@ flags do the same for data types. Unfortunately, proper use of this flexibility
 hinges on the programmer's knowledge of how is the particular piece of code
 going to be used. While it is good practice to request the early evaluation of
 values which will have to be forced anyway, sprinkling strictness annotations
-throughout library code in attempts to prevent space leaks may lead to the
+throughout library code in an attempt to prevent space leaks may lead to the
 unintentional sacrifice of the benefits of laziness, even preventing some usage
 patterns in subtle ways. Additionally, since these strict evaluation facilities
 only force thunks to \acrshort{whnf}, the evaluated objects may still retain
@@ -695,7 +696,7 @@ code generated by the compiler.
 The \acrshort{ghc}-provided tooling outlined above -- particularly the option
 to dump Core code during compilation and analyse demand signatures -- is rather
 obscure. It is reasonable to expect the average Haskell programmer to only
-reach for the profiling tools in a time of dire need, when writing
+reach for the profiling tools in a time of dire need, \eg when writing
 high-performance code or dealing with unacceptable space leaks. It is further
 reasonable not to expect the average Haskell programmer to know the internals
 of the compiler well enough to ask it for the Core representation of their
@@ -707,7 +708,7 @@ which are only described in the \acrshort{ghc} Commentary.\footnote{
 } Perhaps it would be interesting to include the strictness information
 inferred by the compiler in interfaces programmers often interact with, such as
 the various widgets provided by the \acrfull{hls}~\cite{gh-hls}, but to our
-knowledge no such tool exists at the time of writing.
+knowledge no such tool exists at the time of writing. \todo{fix word on next page}
 
 In theory, the \acrlong{ghc}'s optimisations are advanced enough to compile the
 majority of Haskell code fairly efficiently, without space leaks or allocation
@@ -750,12 +751,12 @@ tree. It does so by asking the user questions about whether certain evaluations
 were correct, working its way gradually deeper into the tree. The ``algorithmic
 debugger'' ultimately reports the faults it located.
 
-While Hoed's approach to debugging is certainly interesting and quite far
-removed from the concept of debuggers in other languages, it lacks any kind of
-awareness of the low-level details of non-strictness. Hoed is thus intended for
-use with property testers like QuickCheck~\cite{quickcheck-paper}, and not as a
-tool for the identification and resolution of language implementation
--dependent issues, such as memory leaks.
+While Hoed's approach to debugging is certainly interesting and quite distinct
+in comparison to debuggers in other languages, it lacks any kind of awareness
+of the low-level details of non-strictness. Hoed is thus intended for use with
+property testers like QuickCheck~\cite{quickcheck-paper}, and not as a tool for
+the identification and resolution of language implementation -dependent issues,
+such as memory leaks.
 
 
 \subsection*{\hackage{nothunks}} \label{sec:nothunks}
@@ -968,12 +969,12 @@ is strict in an argument \hsIdent{a} if \hsIdent{a} has to be evaluated
 whenever \hsCode{f a} is evaluated.
 
 There is a number of possible approaches to this problem. As discussed in
-chapter \ref{sec:state-of-the-art}, there already exist related projects which
-we could build on, at various levels of abstraction. At the lowest level, we
-could modify the \acrshort{rts} and extract information about heap objects
-there. We could also modify the compiler in various ways, since it already
-includes support for \acrshort{hpc} and profiling, which is similar to the
-tracing we would like to implement. Another option is to follow the path of
+Chapter~\ref{sec:state-of-the-art}, related projects which we could build on
+already exist, at various levels of abstraction. At the lowest level, we could
+modify the \acrshort{rts} and extract information about heap objects there. We
+could also modify the compiler in various ways, since it already includes
+support for \acrshort{hpc} and profiling, which is similar to the tracing we
+would like to implement. Another option is to follow the path of
 \nameref{sec:hat}, rewriting the textual source code of traced programs. In
 this work, we explore two design directions: extending \acrshort{ghci} and
 tracing with compiler plugins.
@@ -1013,10 +1014,9 @@ together with high-level information about breakpoints, pointers to allocated
 string literals, and other data.
 
 Compiled\footnote{That is, compiled to bytecode instructions.} bytecode objects
-and their metadata form an analogy of the compiler's module abstraction called
-\hsType{CompiledByteCode}. \acrshort{ghci} includes a dynamic linker capable of
-resolving references between bytecode objects as well as between
-\acrshortpl{bco} and object code.
+and their metadata together form \hsType{CompiledByteCode}. \acrshort{ghci}
+includes a dynamic linker capable of resolving references between bytecode
+objects as well as between \acrshortpl{bco} and object code.
 
 These features are transparent to the user, who manipulates \acrshort{ghci} via
 its user interface. The \acrshort{ui} is implemented separately from the core
@@ -1024,11 +1024,11 @@ functionality and communicates with the \acrshort{ghci} library code via
 message-passing. This separation allows the \acrshort{ui} and the library code,
 which is in charge of interpreted evaluation, to run in different processes.
 \acrshort{ghci} features a mode of operation called ``Remote \acrshort{ghci},''
-in which the \acrshort{ui} and the interpreter communicate over a pipe. Remote
-\acrshort{ghci} is useful for situations where the capabilities and heap object
-definitions of the runtime systems of the compiler and the interpreter differ,
-e.g. when the compiler and \acrshort{ghci} \acrshort{ui} were built regularly
-with optimisations, but the interpreter was built with profiling.
+in which the \acrshort{ui} and the interpreter communicate over a Unix pipe.
+Remote \acrshort{ghci} is useful for situations where the capabilities and heap
+object definitions of the runtime systems of the compiler and the interpreter
+differ, e.g. when the compiler and \acrshort{ghci} \acrshort{ui} were built
+regularly with optimisations, but the interpreter was built with profiling.
 
 When evaluating an expression, the library code forks a new thread to perform
 evaluation independently of the interpreter server. This ensures that
@@ -1053,8 +1053,8 @@ the evaluation of an expression, which we will call the \texttt{eval} thread.
 
 When the server thread forks into the \texttt{eval} thread to begin expression
 evaluation, it waits on the \hsIdent{statusMVar}. The \texttt{eval} thread
-keeps running, eventually either producing a result, throwing an exception, or
-hitting a breakpoint. In the former two cases, it simply fills the
+keeps running and eventually either produces a result, throws an exception, or
+hits a breakpoint. In the former two cases, it simply fills the
 \hsIdent{statusMVar} with the appropriate information (either the result of
 evaluation or the exception) and exits. The server thread resumes execution,
 passing the result from the \texttt{eval} thread to the \acrshort{ui}.
@@ -1472,14 +1472,14 @@ written in Haskell, introduced to replace architecture based on \acrshort{gnu}
 Make. As of \acrshort{ghc} 8.10.2, either system can build the project. We do
 not recommend using Make: Hadrian was developed to address many issues with
 Make, including its excessive complexity and poor performance. Additionally,
-the build tool of the programmer's choice can be combined with a Docker or Nix
--assisted set-up, simplifying the installation of other dependencies required
+the build tool of the programmer's choice can be combined with a Docker- or
+Nix-assisted setup, simplifying the installation of other dependencies required
 for the build process. Tools for simplifying library management are compelling
 choices for projects with larger teams. However, we found it significantly
 easier to set up a ``native'' development environment. Both Nix and Docker
 suffer from substantial disk usage overhead. Our experience in developing a
 Docker container for \acrshort{ghc} 8.10.2 indicates that large portions of the
-native set-up have to be replicated in the container.
+native setup have to be replicated in the container.
 
 For example, correctly configuring \acrshort{hls} to load the \acrshort{ghc}
 source code is quite an involved task, eased by the \texttt{hie-bios}
@@ -1489,7 +1489,7 @@ container results in \texttt{hie-bios} reporting include paths specific to the
 container's file\-system to the language server, which in turn breaks all of
 its functionality. One possible solution is installing \acrshort{hls} inside
 the Docker container instead and letting the code editor of choice talk to the
-containerised process. In comparison, a native set-up with \texttt{ghcup} is
+containerised process. In comparison, a native setup with \texttt{ghcup} is
 far easier and comes with fewer surprises along the way, which is why we would
 recommend it for a project similar in scale to ours.
 
@@ -1500,27 +1500,26 @@ it can and does compile its own source code. Since the project quickly adapts
 to use new language extensions, specific releases of \acrshort{ghc} require
 specific versions of it already installed. As a result, the management of
 \acrshort{ghc} versions on a Unix-like system with a system-wide package
-manager can be difficult. To ease this task and enable quick switching between
-them, there is the \texttt{ghcup} tool~\cite{ghcup}. \texttt{ghcup} lets the
-\acrshort{ghc} developer quickly install and switch between the releases of not
-only \acrshort{ghc} itself, but also Cabal, the Haskell build system and
-dependency manager, and the \acrfull{hls}, an \acrshort{lsp}-compliant language
-server providing Haskell-specific editor integration features.
+manager can be difficult. The \texttt{ghcup} tool~\cite{ghcup} can greatly ease
+this task and enable quick switching between versions. \texttt{ghcup} lets the
+developer quickly install and switch between the releases of not only
+\acrshort{ghc} itself, but also Cabal, the Haskell build system and dependency
+manager, and the \acrfull{hls}, an \acrshort{lsp}-compliant language server
+providing Haskell-specific editor integration features.
 
-In our set-up, we choose to use Hadrian. The build system bootstraps the
-compiler in several steps. The \acrshort{ghc} provided by the system is
-referred to as the \textbf{stage 0} compiler. \acrshort{ghc} comes with build
-scripts which use the \textbf{stage 0} compiler to build first the Hadrian
-build system. Once Hadrian has been built, the user invokes it to build the
-\textbf{stage 1} compiler, which is a \acrshort{ghc} linked against the
-\textbf{stage 0} \hackage{base} library. The \textbf{stage 1} compiler is
-subsequently used to build the core libraries from scratch. It is then utilised
-again to build the \textbf{stage 2} compiler, which is linked against the
-freshly built \hackage{base}. The \textbf{stage 2} compiler constitutes a
-complete build of \acrshort{ghc} from source code. There is an optional
-follow-up step, where the \textbf{stage 2} compiler builds a \textbf{stage 3}
-compiler, which is useful for profiling \acrshort{ghc} while building
-\acrshort{ghc}.
+In our setup, we chose to use Hadrian. The build system bootstraps the compiler
+in several steps. The \acrshort{ghc} provided by the system is referred to as
+the \textbf{stage 0} compiler. \acrshort{ghc} comes with build scripts which
+use the \textbf{stage 0} compiler to build first the Hadrian build system. Once
+Hadrian has been built, the user invokes it to build the \textbf{stage 1}
+compiler, which is a \acrshort{ghc} linked against the \textbf{stage 0}
+\hackage{base} library. The \textbf{stage 1} compiler is subsequently used to
+build the core libraries from scratch. It is then utilised again to build the
+\textbf{stage 2} compiler, which is linked against the freshly built
+\hackage{base}. The \textbf{stage 2} compiler constitutes a complete build of
+\acrshort{ghc} from source code. There is an optional follow-up step, where the
+\textbf{stage 2} compiler builds a \textbf{stage 3} compiler, which is useful
+for profiling \acrshort{ghc} while building \acrshort{ghc}.
 
 Hadrian offers many configuration options defined as a Haskell module called
 \hsModule{UserSettings} and comes with a template settings file which explains
@@ -1531,8 +1530,8 @@ lower-level abstraction called a \textit{build way}. Libraries and the
 \acrshort{rts} can be built in multiple \textit{ways}, which configure
 far-reaching \acrshort{ghc}-specific features, such as profiling and debugging
 symbols. The \acrshort{rts} can be built in threaded and non-threaded ways, the
-latter variant of \acrshort{rts} runs in a single operating system thread. When
-exploring \acrshort{ghci}, we developed a custom build flavour which built the
+latter way runs in a single operating system thread. When exploring
+\acrshort{ghci}, we developed a custom build flavour which built the
 \acrshort{rts} with the debugging variant of the threaded way. There are still
 some issues with the Hadrian \acrshort{rts} build process, which means the
 configuration has to include more ways than necessary.\footnote{
@@ -1843,19 +1842,18 @@ more verbose structures of the surface syntax.
 
 \subsection*{Using the plugin}
 Applying a compiler plugin in the pipeline of \acrshort{ghc} is
-straightforward: it suffices to pass a command-line option \texttt{-fplugin}
-set to the name of the module which exports the plugin definition. Multiple
+straightforward. The user simply passes a command-line option \texttt{-fplugin}
+set to the name of the module that exports the plugin definition. Multiple
 plugins can be specified at once by passing more than one \texttt{-fplugin}
 option, the compiler applies them in the order they are defined.\footnote{
 	Still subject primarily to the order of phases in the pipeline, but ordered
 	secondarily according to the succession of command-line arguments to avoid
 	ambiguities.
 } To make the module visible to the compiler, it has to be installed in
-\acrshort{ghc}'s package database. Installation is simply a matter of executing
-the Cabal command \mintinline{bash}{cabal install --lib} in the plugin's
-directory.
-
-\todo{\ldots}
+\acrshort{ghc}'s package database. Installation is a matter of executing the
+Cabal command \mintinline{bash}{cabal install --lib} in the plugin's directory.
+An example project with a Cabal configuration that applies the plugin on all
+modules is included on the enclosed medium.
 
 \subsection*{Shortcomings}
 Our implementation work does not include all the transformations required to
@@ -1916,10 +1914,10 @@ analysis.
 \section*{Future work}
 Our work is only the beginning of the journey towards understanding the
 practical implications of laziness. The compiler plugin we developed needs to
-be finalised and extended before it can start recording data on unmodified real
-world programs. After incorporating these fixes, it can support large-scale
-collection of traces, providing the empirical evidence for use in a future
-study.
+be finalised and extended before it can start recording data on unmodified
+real-world programs. After incorporating these fixes, it can support
+large-scale collection of traces, providing the empirical evidence for use in a
+future study.
 
 
 \bibliography{./bibliography/bbl.bib}
