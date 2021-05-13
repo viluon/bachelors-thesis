@@ -22,8 +22,6 @@
 % hidelinks remove colour boxes around hyperlinks
 
 \documentclass[thesis=B,english]{FITthesis}[2019/12/23]
-% TODO ✨remove from final build! ✨
-\overfullrule=5pt
 
 \usepackage[utf8]{inputenc} % LaTeX source encoded as UTF-8
 % \usepackage[latin2]{inputenc} % LaTeX source encoded as ISO-8859-2
@@ -89,8 +87,6 @@
 % \newacronym{CVUT}{{\v C}VUT}{{\v C}esk{\' e} vysok{\' e} u{\v c}en{\' i} technick{\' e} v Praze}
 % \newacronym{FIT}{FIT}{Fakulta informa{\v c}n{\' i}ch technologi{\' i}}
 \newacronym{ghc}{GHC}{Glasgow Haskell Compiler}
-% TODO: isn't there a better glossary package that handles references
-% correctly?
 \newacronym{ghci}{GHCi}{\acrshort{ghc} interpreter}
 \newacronym{rts}{RTS}{Runtime System}
 \newacronym{stm}{STM}{Software Transactional Memory}
@@ -110,12 +106,9 @@
 \newacronym{rhs}{RHS}{Right-Hand Side}
 \newacronym{hpc}{HPC}{Haskell Program Coverage}
 \newacronym{stg}{STG}{Spineless Tagless G-machine}
-% TODO this should probs go into a glossary instead? (the acronyms should only
-% list the unabbreviated form, not a description of what these are)
 \newacronym{gnu}{GNU}{GNU's Not Unix, a Unix-like operating system}
 \newacronym{hls}{HLS}{Haskell Language Server}
 \newacronym{bco}{BCO}{Byte Code Object}
-% TODO citation?
 \newacronym{lsp}{LSP}{Language Server Protocol}
 \newacronym{tso}{TSO}{Thread State Object}
 \newacronym{whnf}{WHNF}{Weak Head Normal Form}
@@ -194,13 +187,12 @@ leading to pathological memory behaviour at runtime.
 Haskell code is pure,\footnote{
 	Unless it uses unsafe facilities of the language.
 } \ie functions in Haskell correspond closely to mathematical functions and do
-not have side-effects. To perform side-effects, Haskell programs include pure
-descriptions of effectful computations, built in a compositional way via the
-\hsType{IO} monad. When a Haskell program is invoked, the runtime evaluates the
-description called \hsIdent{main}. The strong static type system provides a
-compile-time distinction between pure and effectful code and ensures the two
-cannot be mixed in an impure way. All computation in Haskell is triggered by
-the demand for the value of an expression, starting with \hsIdent{main}.
+not have side-effects. Haskell programs include pure descriptions of effectful
+computations built in a compositional way via the \hsType{IO} monad. Each
+program exports a top-level definition called \hsIdent{main}. Invoking the
+program begins the demand-driven evaluation of its \hsIdent{main} definition by
+the runtime. Haskell's strong static type system provides a compile-time distinction between
+pure and effectful code and ensures the two cannot be mixed in an impure way.
 
 \begin{listing}[h]
 	\centering
@@ -212,16 +204,25 @@ the demand for the value of an expression, starting with \hsIdent{main}.
 	\label{lst:length}
 \end{listing}
 
-When Haskell evaluates an expression, it does so to the least extent possible.
-For example, take the list \hsCode{ys = [fact 5, fact 6, fact 7]} of three
-values of the factorial function. Evaluation of the function applications is delayed by
-storing the necessary data in runtime structures called \textit{thunks}. When
-we apply the function \hsIdent{length} (defined in Listing \ref{lst:length}) to
-\hsIdent{ys} and force the value of the application, \eg by printing it to
-standard output, the function pattern-matches on the \hsIdent{ys} value. Case
-analysis requires the value to be in \textit{\acrfull{whnf}}. An expression is
-said to be in weak head normal form if it has been evaluated to the outermost
-data constructor (such as \hsIdent{:} or \hsIdent{[]}) or lambda abstraction.
+When the runtime evaluates an expression, it does so to the least extent possible.
+For example, take the list \hsCode{ys = fact 5 : fact 6 : fact 7 : []} of three
+values of the factorial function.\footnote{
+	The empty list is spelled \hsCode{[]} and the cons cell is written infix as
+	\hsCode{:}.
+} Evaluation of the function applications is delayed by storing the necessary
+data in runtime structures called \textit{thunks}. When we apply the function
+\hsIdent{length} (defined in Listing \ref{lst:length}) to \hsIdent{ys} and
+force the value of the application, \eg by printing it to standard output, the
+function pattern-matches on the \hsIdent{ys} value. Case analysis requires the
+scrutinee to be in \textit{\acrfull{whnf}}. An expression is said to be in weak
+head normal form if it has been evaluated to the outermost data constructor
+(such as \hsCode{:} or \hsCode{[]}) or lambda abstraction.
+
+The list \hsIdent{ys} is in \acrshort{whnf} already, it is an evaluated cons
+cell with a thunk at the head and another evaluated cons cell at the tail.
+Since \hsIdent{length} only counts the cons cells in a list and does not need
+to evaluate their elements, the application of \hsIdent{length} to \hsIdent{ys}
+will leave the thunks untouched and finish in linear time.
 
 \begin{listing}[h]
 	\centering
@@ -249,16 +250,18 @@ data constructor (such as \hsIdent{:} or \hsIdent{[]}) or lambda abstraction.
 	\label{lst:let-x}
 \end{listing}
 
-For an example of how useful laziness is in Haskell, consider Listing
-\ref{lst:let-x}. The binding \hsIdent{foo} evaluates efficiently to the
-integer~3, but not until its value is required for the evaluation of another
-computation.
+Other examples can be seen in Listing \ref{lst:let-x}. The binding
+\hsIdent{foo} evaluates efficiently to the integer~3, but not until its value
+is required for the evaluation of another computation. The \hsIdent{foo'}
+example is more interesting. Some programs which would crash or diverge in
+strict languages cleanly terminate in Haskell.
 
-\todo{explain the listing}
-\todo{(weak head) normal form}
+The Haskell Prelude, a collection of commonly used definitions imported into
+every module, includes the special function \hsSignature{seq :: a -> b -> b}.
+\hsIdent{seq} evaluates its first argument to \acrshort{whnf} and returns its
+second argument.\footnote{Although not necessarily in this order.}
 
-Haskell lets the programmer explicitly force expressions to \acrshort{whnf}
-with the function \hsSignature{seq :: a -> b -> b}.
+\todo{this here still}
 
 This fight against the semantics is detrimental to the developer experience of
 the language. The question arises whether the benefits of laziness outweigh the
@@ -760,7 +763,7 @@ tool for the identification and resolution of language implementation
 thunk-free code. It defines a new typeclass, \hsTC{NoThunks}, along with
 instances for common Haskell types. Any type with a \hsTC{NoThunks} instance
 can be inspected for unexpected thunks. The library also implements a number of
-alternatives to common functions from the prelude. These re\-implementations
+alternatives to common functions from the Prelude. These re\-implementations
 check for unexpected thunks introduced during execution, throwing an exception
 whenever a thunk is detected.
 
@@ -1298,7 +1301,7 @@ Since rewriting functions into a monadic form would be a difficult undertaking,
 we prefer the way of unsafe features. Integer counters are enough for call
 identification purposes, so we choose to keep one counter per function. All
 counters can be stored in a single mutable map indexed by function names.
-Unsafe functions in the standard prelude can also be used to persist tracing
+Unsafe functions in the standard Prelude can also be used to persist tracing
 information to a file.
 
 Equipped with a means of introducing benign side-effects into programs for
