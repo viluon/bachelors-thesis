@@ -171,28 +171,30 @@ implications on the design of a language~\cite{haskell-is-pure} and comes with
 both benefits in expressiveness and implementation challenges.
 
 The non-strict semantics of the Haskell language were a guiding principle which
-influenced or directly determined many of the decisions made at its
-inception~\cite{history-of-haskell}. Lazy evaluation is a potentially powerful
-implementation strategy for non-strict languages, freeing the programmer to
-focus on what a program means rather than on how it is computed. Laziness
-naturally accommodates user-defined control flow and evaluates only the
-required subset of a given program in a demand-driven manner. However, the
-implementation of non-strict features via laziness in \acrshort{ghc} brings
-many pitfalls which Haskell programmers need to deal with. Automatic avoidance
-of unnecessary thunk allocations is conservative~\cite{cmtary-demand-analysis}:
-if \acrshort{ghc} is unable to prove the strictness of a function in an
-argument by static strictness analysis, the function will remain lazy, possibly
-leading to pathological memory behaviour at runtime.
+influenced or directly determined many of the decisions made at its inception
+over thirty years ago~\cite{history-of-haskell}. Lazy evaluation is a
+potentially powerful implementation strategy for non-strict languages, freeing
+the programmer to focus on what a program means rather than on how it is
+computed. Laziness naturally accommodates user-defined control flow and
+evaluates only the required subset of a given program in a demand-driven
+manner. However, the implementation of non-strict features via laziness in
+\acrshort{ghc} brings many pitfalls which Haskell programmers need to deal
+with. Automatic avoidance of unnecessary thunk allocations is
+conservative~\cite{cmtary-demand-analysis}: if \acrshort{ghc} is unable to
+prove the strictness of a function in an argument by static strictness
+analysis, the function will remain lazy, possibly leading to pathological
+memory behaviour at runtime.
 
-Haskell code is pure,\footnote{
+Haskell code is pure.\footnote{
 	Unless it uses unsafe facilities of the language.
-} \ie functions in Haskell correspond closely to mathematical functions and do
-not have side-effects. Haskell programs include pure descriptions of effectful
-computations built in a compositional way via the \hsType{IO} monad. Each
-program exports a top-level definition called \hsIdent{main}. Invoking the
-program begins the demand-driven evaluation of its \hsIdent{main} definition by
-the runtime. Haskell's strong static type system provides a compile-time distinction between
-pure and effectful code and ensures the two cannot be mixed in an impure way.
+} Functions in Haskell correspond closely to mathematical functions: they are
+deterministic and free of side-effects. Haskell programs include pure
+descriptions of effectful computations built in a compositional way via the
+\hsType{IO} monad. Each program exports a top-level definition called
+\hsIdent{main}. Invoking the program begins the demand-driven evaluation of its
+\hsIdent{main} definition by the runtime. Haskell's strong static type system
+provides a compile-time distinction between pure and effectful code and ensures
+the two cannot be mixed in an impure way.
 
 \begin{listing}[h]
 	\centering
@@ -257,18 +259,24 @@ example is more interesting. Some programs which would crash or diverge in
 strict languages cleanly terminate in Haskell.
 
 The Haskell Prelude, a collection of commonly used definitions imported into
-every module, includes the special function \hsSignature{seq :: a -> b -> b}.
-\hsIdent{seq} evaluates its first argument to \acrshort{whnf} and returns its
-second argument.\footnote{Although not necessarily in this order.}
-
-\todo{this here still}
+every module, includes the special function \hsSignature{seq :: a -> b -> b},
+which evaluates its first argument to \acrshort{whnf} and returns its second
+argument.\footnote{Although not necessarily in this order.} Since evaluation to
+\acrshort{whnf} happens automatically, one may wonder what is the purpose of
+this function. Its usefulness becomes apparent when the user starts dealing
+with programs in which performance is critical or with longer-running
+applications. In these situations, the problems of laziness tend to surface.
+Thunks which are never forced by the program but are still reachable in the
+object graph waste memory. Haskell is a garbage collected language and similar
+memory leaks slow the garbage collector down, adding a negative impact on
+runtime performance. The problems with laziness are well-known and difficult to
+debug. The user may be tempted to add calls to \hsIdent{seq} or other utilities
+to force evaluation and avoid thunk build-up.
 
 This fight against the semantics is detrimental to the developer experience of
 the language. The question arises whether the benefits of laziness outweigh the
-toll it takes on the programmer. To answer this question, the runtime behaviour
-of lazy features needs to be understood. As a first step towards that
-understanding, we design a dynamic tracing tool capable of capturing
-information about the runtime behaviour of non-strict functions.
+toll it takes on the programmer. This work focuses on laying the empirical
+groundwork to help answer this question.
 
 
 \setsecnumdepth{all}
@@ -353,19 +361,21 @@ increasingly structured data before passing it on to the back end. During this
 process, the front end identifies and reports all errors in the user's code.
 
 As the program flows through the pipeline, its invariants gradually change. The
-codebase reflects this by passing different data types from phase to phase. The
-types of the nodes of the surface syntax tree are indexed by an uninhabited
-type \hsType{GhcPass}, which is itself indexed by the \hsType{Pass} data type
-(i.e. \hsType{GhcPass} has kind \hsType{Pass -> *}), lifted to the type level.
-Together, the \hsType{GhcPass} types represent the various phases of the
-compiler front end, from parsing to renaming to type checking. The type level
-distinction between phases complicates the type signatures of almost all
-functions in the pipeline, but the choice comes with important benefits.
-First, indexing \acrshort{ast} types by the \hsType{GhcPass} types provides a
-compile-time guarantee that nodes from different phases cannot be mixed
-unintentionally. Second, the phase type parameter allows one to use the Tress
-that Grow pattern~\cite{trees-that-grow}, that enables easy extensions of both
-sum and product types at various phases.
+codebase reflects this by passing different data types from phase to phase. For
+example, the type of binders changes from \hsType{Name}s, which represent
+fully-qualified names, to \hsType{Id}s, which are annotated with type
+information. The types of the nodes of the surface syntax tree are indexed by
+an uninhabited type \hsType{GhcPass}, which is itself indexed by the
+\hsType{Pass} data type (i.e. \hsType{GhcPass} has kind \hsType{Pass -> *}),
+lifted to the type level.  Together, the \hsType{GhcPass} types represent the
+various phases of the compiler front end, from parsing to renaming to type
+checking. The type level distinction between phases complicates the type
+signatures of almost all functions in the pipeline, but the choice comes with
+important benefits.  First, indexing \acrshort{ast} types by the
+\hsType{GhcPass} types provides a compile-time guarantee that nodes from
+different phases cannot be mixed unintentionally. Second, the phase type
+parameter allows one to use the Tress that Grow pattern~\cite{trees-that-grow},
+that enables easy extensions of both sum and product types at various phases.
 
 \begin{tcolorbox}[parbox=false, breakable, title=Trees that Grow]
 Let us take a small detour to explain the concept of the design pattern,
@@ -491,8 +501,12 @@ Core directly to bytecode instructions, although this is about to change in
 
 \subsubsection*{Compiler plugins}
 Both the front end and the back end of the compiler can be modified or extended
-in a modular way using \textit{compiler plugins}, which come in two flavours:
-core plugins on the back end and source plugins on the front
+in a modular way using \textit{compiler plugins}, which come in two main
+flavours:\footnote{
+	There are other types of plugins as well, including typechecker, hole fit,
+	front end, and DynFlags plugins, but these are not that relevant to our
+	work.
+} Core plugins on the back end and source plugins on the front
 end~\cite{ghc-source-plugins}. The former act on the Core language and are best
 suited for optimisations, while high level analyses, language extensions and
 code generation are better handled by the latter. We will discuss source
@@ -708,7 +722,7 @@ which are only described in the \acrshort{ghc} Commentary.\footnote{
 } Perhaps it would be interesting to include the strictness information
 inferred by the compiler in interfaces programmers often interact with, such as
 the various widgets provided by the \acrfull{hls}~\cite{gh-hls}, but to our
-knowledge no such tool exists at the time of writing. \todo{fix word on next page}
+knowledge no such tool exists at the time of writing.
 
 In theory, the \acrlong{ghc}'s optimisations are advanced enough to compile the
 majority of Haskell code fairly efficiently, without space leaks or allocation

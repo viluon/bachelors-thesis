@@ -340,7 +340,7 @@ sp\^ osobom, ktor\'y nezni\v zuje hodnotu Diela (vr\'atane komer\v cn\'eho vyu\v
 \DeclareRobustCommand{\titlepage}{
         \begin{titlingpage}
         \noindent
-        \if\@lang1{\includegraphics[width=0.5\textwidth]{resources/cvut-logo-bw}}\else\if\@lang2{\includegraphics[width=0.5\textwidth]{resources/cvut-logo-bw}}\else{\includegraphics[width=0.5\textwidth]{resources/cvut-logo-bw-en}}\fi\fi
+        \if\@lang1{\includegraphics[width=0.5\textwidth]{resources/cvut-logo-bw}}\else\if\@lang2{\includegraphics[width=0.5\textwidth]{resources/cvut-logo-bw}}\else{\includegraphics[width=0.5\textwidth]{./resources/logo-fit-en-pantone.pdf}}\fi\fi
         
         \vfill
 		
@@ -433,7 +433,7 @@ sp\^ osobom, ktor\'y nezni\v zuje hodnotu Diela (vr\'atane komer\v cn\'eho vyu\v
 
 		\noindent
 			\if@cityfordeclarationdefined
-				\if\@lang1{}\else\if\@lang2{}\else{In }\fi\fi\thecityfordeclaration{} \if\@lang1{dne}\else\if\@lang2{}\else{on}\fi\fi~\today \hfill \dots\dots\dots\dots\dots\dots\dots
+				\if\@lang1{}\else\if\@lang2{}\else{In }\fi\fi\thecityfordeclaration{} \if\@lang1{dne}\else\if\@lang2{}\else{on}\fi\fi~\today \hfill \dotfill
 			\else
 				\ClassError{FITthesis}{M{\' i}sto prohl{\' a}{\v s}en{\' i} nebylo zad{\' a}no}{Nastavte m{\' i}sto, kde bylo podeps{\' a}no prohl{\' a}{\v s}en{\' i}, v{\v c}etn{\v e} p{\v r}edlo{\v z}ky (nap{\v r}. V~Praze) pomoc{\' i} p{\v r}{\' i}kazu \placeForDeclaration.}
 			\fi
