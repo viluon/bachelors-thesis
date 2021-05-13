@@ -171,7 +171,7 @@ generic programming}
 \chapter{Introduction} \label{sec:intro}
 Conventional programming languages of all paradigms use -- almost equivocally
 -- eager evaluation strategies. Non-strict semantics has far-reaching
-implications on the design of a language\cite{haskell-is-pure} and comes with
+implications on the design of a language~\cite{haskell-is-pure} and comes with
 both benefits in expressiveness and implementation challenges.
 
 \begin{listing}[h]
@@ -206,10 +206,10 @@ means rather than on how it is computed. Laziness naturally accommodates
 user-defined control flow and evaluates only the required subset of a given
 program in a demand-driven manner. The non-strict semantics of the Haskell
 language were a guiding principle which influenced or directly determined many
-of the decisions made at its inception\cite{history-of-haskell}. However, the
+of the decisions made at its inception~\cite{history-of-haskell}. However, the
 implementation of non-strict features via laziness in \acrshort{ghc} brings
 many pitfalls which Haskell programmers need to deal with. Automatic avoidance
-of unnecessary thunk allocations is conservative\cite{cmtary-demand-analysis}:
+of unnecessary thunk allocations is conservative~\cite{cmtary-demand-analysis}:
 if \acrshort{ghc} is unable to prove the strictness of a function in an
 argument by static strictness analysis, the function will remain lazy, possibly
 leading to pathological memory behaviour at runtime.
@@ -234,7 +234,7 @@ evaluation facilitated mainly by a runtime data structure called a
 
 Laziness leads to many issues with runtime behaviour of Haskell programs,
 although it is an efficient implementation of non-strict semantics as required
-by the Haskell spec\cite{haskell2010}. The accumulation of thunks at runtime is
+by the Haskell spec~\cite{haskell2010}. The accumulation of thunks at runtime is
 a frequent cause of pathological memory behaviour and unpredictable
 performance. There is a number of libraries and tools which aim to help the
 Haskell programmer inspect the runtime state of the Haskell heap, force the
@@ -249,7 +249,7 @@ came close (\nameref{sec:hat} and \nameref{sec:ghc-heap-view}).
 
 \section{The Glasgow Haskell Compiler} \label{sec:ghc}
 \acrshort{ghc} is the most widespread Haskell distribution. Its plethora of
-language extensions\cite{ghc-language-extensions}, which range from simple
+language extensions~\cite{ghc-language-extensions}, which range from simple
 syntactical utilities to complex type system add-ons, lets the programmer
 customise the set of features provided by the language. We briefly discuss the
 internal organisation of the project and in the process explain those basics of
@@ -315,7 +315,7 @@ functions in the pipeline, but the choice comes with important benefits.
 First, indexing \acrshort{ast} types by the \hsType{GhcPass} types provides a
 compile-time guarantee that nodes from different phases cannot be mixed
 unintentionally. Second, the phase type parameter allows one to use the Tress
-that Grow pattern\cite{trees-that-grow}, that enables easy extensions of both
+that Grow pattern~\cite{trees-that-grow}, that enables easy extensions of both
 sum and product types at various phases.
 
 \begin{tcolorbox}[parbox=false, breakable, title=Trees that Grow]
@@ -389,7 +389,7 @@ For an in-depth description of the design pattern, its generalisations to
 multiple type parameters, existentials, \acrshortpl{gadt}, hierarchies of
 extension descriptors, as well as relations to generic programming,
 typeclasses, and for many other practically useful details, we recommend the
-publication introducing the idea\cite{trees-that-grow}.
+publication introducing the idea~\cite{trees-that-grow}.
 
 Although the Trees that Grow pattern is not used universally throughout the
 \acrshort{ghc} project, its concepts play an important role in many of the core
@@ -403,7 +403,7 @@ The Haskell language contains many redundancies and shorthands designed to make
 the syntax more user-friendly. The \acrshort{ast} data types contains hundreds
 of constructors. In contrast, Core only has about 10 syntactical forms.
 Essentially, it is a variant of System F extended with type equality
-coercions\cite{system-fc}.
+coercions~\cite{system-fc}.
 
 Although Core is typed, the compiler only type checks Core programs if the user
 explicitly asks for it. Core types exist mostly to validate the internal
@@ -413,7 +413,7 @@ typechecking into incorrectly typed Core would be a compiler bug.
 Most of the optimisation passes \acrshort{ghc} performs are local
 semantics-pre\-serv\-ing transformations of Core (Core-to-Core passes) which
 are applied in many iterations during invocations of the
-simplifier\cite{cmtary-core2core}. These include \eg constant folding,
+simplifier~\cite{cmtary-core2core}. These include \eg constant folding,
 inlining, or fusion of nested case expressions. The local rewritings improve
 intermediate code between applications of heavier optimisations, such as
 specialisation (to eliminate overloading), demand analysis, \hsCode{let}
@@ -444,7 +444,7 @@ Core directly to bytecode instructions, although this is about to change in
 Both the front end and the back end of the compiler can be modified or extended
 in a modular way using \textit{compiler plugins}, which come in two flavours:
 core plugins on the back end and source plugins on the front
-end\cite{ghc-source-plugins}. The former act on the Core language and are best
+end~\cite{ghc-source-plugins}. The former act on the Core language and are best
 suited for optimisations, while high level analyses, language extensions and
 code generation are better handled by the latter. We will discuss source
 plugins in more detail in chapter~\ref{sec:analysis-design}.
@@ -536,7 +536,7 @@ important ones:
 	\item[Function closures] represent Haskell functions. When entered,
 		functions assume that all their arguments are present at the top of the
 		stack. This is known as the \textit{eval/apply} evaluation
-		model\cite{eval-apply}.
+		model~\cite{eval-apply}.
 
 		The payload of a function closure carries pointers to the free
 		variables of the function's body.
@@ -587,7 +587,7 @@ to simply annotate certain patterns in the program with exclamation marks and
 observe a reduction in memory consumption.
 
 The language extension shares the exclamation mark syntax with the Haskell 2010
-strictness flags feature\cite{haskell2010-strictness-flags}. While
+strictness flags feature~\cite{haskell2010-strictness-flags}. While
 \texttt{BangPatterns} add optional strictness to pattern matching, strictness
 flags do the same for data types. Unfortunately, proper use of this flexibility
 hinges on the programmer's knowledge of how is the particular piece of code
@@ -603,13 +603,13 @@ library.
 
 The lack of programmer insight into how a piece of code is used in a program
 and what strictness properties it has is a major developer experience
-issue\cite{memory-profiling-blog-post, anatomy-of-thunk-leak-blog-post,
+issue~\cite{memory-profiling-blog-post, anatomy-of-thunk-leak-blog-post,
 nothunks-blog-post, haskell-space-leaks, detecting-space-leaks-blog-post}.
 Some of the discussed debugging tools help ameliorate the problem, but
 \acrshort{ghc} itself includes features especially suited to doing so. The
 compiler supports two profiling modes, cost-centre profiling and
 ``ticky-ticky'' profiling, which the \acrshort{ghc} User's Guide dedicates a
-chapter to\cite{ghc-profiling}. While the ``ticky-ticky'' mode is only of
+chapter to~\cite{ghc-profiling}. While the ``ticky-ticky'' mode is only of
 interest to \acrshort{ghc} developers, the cost-centre profiling functionality
 is an easy-to-use tool for understanding the time and space behaviour of
 Haskell programs. All it requires of the programmer is a recompilation of the
@@ -634,7 +634,7 @@ a fairly small $\lambda$ calculus, Core has a clearer semantics including a
 strict pattern-matching operator \hsCode{case e of arms...}, which indicates
 obviously strict subexpressions. Furthermore, the Core output features
 \textit{demand signatures}, inferred by \acrshort{ghc}'s demand
-analysis\cite{cmtary-demand-analysis}, which classify binders depending on how
+analysis~\cite{cmtary-demand-analysis}, which classify binders depending on how
 strict they are in their arguments and to what extent do they use the
 components of arguments of product types. The results of demand analysis are
 crucial for subsequent optimisation. Understanding the demand signatures of a
@@ -676,7 +676,7 @@ few of these deal specifically with the issues with laziness that Haskell
 programmers have to face.
 
 \subsection*{Hoed} \label{sec:hoed}
-Hoed\cite{gh-hoed} is a tracer and debugger for Haskell. Unlike the built-in
+Hoed~\cite{gh-hoed} is a tracer and debugger for Haskell. Unlike the built-in
 debugger of \acrshort{ghci}, Hoed is implemented as a regular Haskell library.
 Users of Hoed manually annotate functions of interest to make the tracer
 capture relevant information during execution. The annotations are simply calls
@@ -705,7 +705,7 @@ debugger'' ultimately reports the faults it located.
 While Hoed's approach to debugging is certainly interesting and quite far
 removed from the concept of debuggers in other languages, it lacks any kind of
 awareness of the low-level details of non-strictness. Hoed is thus intended for
-use with property testers like QuickCheck\cite{quickcheck-paper}, and not as a
+use with property testers like QuickCheck~\cite{quickcheck-paper}, and not as a
 tool for the identification and resolution of language implementation
 -dependent issues, such as memory leaks.
 
@@ -735,7 +735,7 @@ removal of thunks from the runtime state of a program, and does not help with
 careful strictness analysis.
 
 \subsection*{Hat} \label{sec:hat}
-The Haskell Tracer Hat\cite{proj-hat} is a source-level tracer. It works by
+The Haskell Tracer Hat~\cite{proj-hat} is a source-level tracer. It works by
 compiling Haskell source files to annotated -- but still textual -- Haskell
 source files. After this source-to-source translation, the user compiles the
 annotated source code and runs it to produce a Hat trace.
@@ -748,10 +748,10 @@ functions, virtual stack traces, and even an interactive tool for locating
 errors in a program, similar to one of the features of \nameref{sec:hoed}.
 
 Hat was initially developed for the \texttt{nhc} Haskell
-compiler\cite{hat-history}. It centred around the idea of using a single, rich
+compiler~\cite{hat-history}. It centred around the idea of using a single, rich
 trace of a program's execution to support several different kinds of debugging.
 Despite its advanced features, it did not seem to attract many
-users\cite{hat-history}, possibly due to feature disparities between the
+users~\cite{hat-history}, possibly due to feature disparities between the
 supported syntax and new language extensions.
 
 Hat's source-to-source translation makes it portable between different
@@ -815,7 +815,7 @@ are added to the visualisation.
 
 \acrshort{hpc}'s feature set can be of tremendous help to the Haskell
 programmer, especially when combined with tools like
-QuickCheck\cite{quickcheck-paper}. However, its traces are tuned specifically
+QuickCheck~\cite{quickcheck-paper}. However, its traces are tuned specifically
 for code coverage and do not contain enough information to be useful for any
 kind of dynamic strictness analysis. While the \acrshort{hpc} traces are
 sufficiently granular, the subexpression counters lack necessary information
@@ -1004,7 +1004,7 @@ exceptions raised during evaluation of an expression do not crash
 this is the case. The two threads communicate via \textit{mutable variables},
 or \hsType{MVar}s. These are concurrency primitives from the
 \hsModule{Control.Concurrent.MVar} module which effectively implement
-concurrent, mutable \hsType{Maybe}s\cite{concurrent-haskell}. A mutable
+concurrent, mutable \hsType{Maybe}s~\cite{concurrent-haskell}. A mutable
 variable of type \hsType{MVar a} contains either no values or a single value of
 type \hsType{a}. It can be safely shared across threads and supports
 operations \hsIdent{takeMVar} and \hsIdent{putMVar}. The former operation
@@ -1284,11 +1284,11 @@ compiler pipeline and can operate on the surface-level syntax at different
 stages.
 
 \subsubsection*{Source plugins}
-Source plugins\cite{ghc-source-plugins} are a relatively recently introduced
+Source plugins~\cite{ghc-source-plugins} are a relatively recently introduced
 feature of \acrshort{ghc}. Compiler source plugins are Haskell packages which
 invoke the \acrshort{ghc} \acrshort{api} to hook into the compiler pipeline and
 modify the compiled program at various stages of the front end. Unlike Core
-plugins\cite{ghc-compiler-plugins}, which operate on the internal language,
+plugins~\cite{ghc-compiler-plugins}, which operate on the internal language,
 source plugins deal with the entirety of Haskell's surface syntax.
 
 Rather than parsing, transforming, and serialising the source code separately
@@ -1359,7 +1359,7 @@ tracing results.
 \subsection*{Rewriting the \acrshort{ast}}
 Armed with the impure tracing functions and a plan on how to apply them, we
 move on to the problem of syntax tree transformation. The \hsModule{GhcPlugins}
-module\cite{hkg-ghcplugins} of the \acrshort{ghc} \acrshort{api} includes the
+module~\cite{hkg-ghcplugins} of the \acrshort{ghc} \acrshort{api} includes the
 necessary functions to hook into the compiler pipeline. A source plugin can
 choose to modify the syntax tree at three different stages: right after
 parsing, between renaming and typechecking, or just after the typechecker has
@@ -1378,11 +1378,11 @@ manually.
 \todo{fix \texttt{\textbackslash citeauthor}}
 As \citeauthor{blog-source-plugins}'s introduction to source plugins shows, the
 costs associated with the construction of syntax trees later in the pipeline
-are not prohibitive\cite{blog-source-plugins}. The \acrshort{ghc}
+are not prohibitive~\cite{blog-source-plugins}. The \acrshort{ghc}
 \acrshort{api} exports high-level functions which let the plugin author take
 trees from parsed to renamed to typechecked in only a few lines of code.
 Moreover, the plugin author can use the quasi\-quoting
-features\cite{th-quasiquoting} of Template Haskell\cite{th-classic} to greatly
+features~\cite{th-quasiquoting} of Template Haskell~\cite{th-classic} to greatly
 simplify the construction of expressions. The quasi\-quoting facilities even
 manage references to definitions in the scope of the plugin's source code
 automatically. Common patterns in the expressions created by the plugin can be
@@ -1400,12 +1400,12 @@ code after each of the front end stages.
 
 The actual process of rewriting the right-hand sides of function definitions
 involves the data types for the surface syntax of Haskell, which has hundreds
-of constructs\cite[Key~Design~Choices]{arch-ghc}. The general task of
+of constructs~\cite[Key~Design~Choices]{arch-ghc}. The general task of
 transforming hierarchies of deeply nested data types has many innovative
 Haskell solutions, including optics and generic programming. While we could use
 pro\-functor optics or novel generic approaches, we leverage a fairly simple,
 if a bit dated, generic programming technique via the \acrfull{syb}
-library\cite{syb-paper}. \acrshort{syb}'s built-in querying and transformation
+library~\cite{syb-paper}. \acrshort{syb}'s built-in querying and transformation
 schemes empower the Haskell programmer with means of applying type-specific
 functions in all appropriately typed fields of a nested data structure. The
 library is built using powerful generalisations of folding and a number of
@@ -1431,8 +1431,8 @@ for forking\todo{term?} the project -- we did so when evaluating the
 \acrshort{ghci} approach.
 
 The \acrshort{ghc} codebase is a large and complicated collection of source
-files written primarily in Haskell and C\cite{arch-ghc}. The ever-evolving
-project is supported by a custom build system called Hadrian\cite{hadrian},
+files written primarily in Haskell and C~\cite{arch-ghc}. The ever-evolving
+project is supported by a custom build system called Hadrian~\cite{hadrian},
 itself written in Haskell, introduced to replace \acrshort{gnu} Make.
 Additionally, the build tool of the programmer's choice can be combined with a
 Docker or Nix -assisted set-up, simplifying the installation of other
@@ -1448,7 +1448,7 @@ in the container.
 
 For example, correctly configuring \acrshort{hls} to load the \acrshort{ghc}
 source code is quite an involved task, eased by the \texttt{hie-bios}
-project\cite{gh-hie-bios} which ships with Hadrian (as a part of the
+project~\cite{gh-hie-bios} which ships with Hadrian (as a part of the
 \acrshort{ghc} source tree). However, compiling \acrshort{ghc} inside the
 container results in \texttt{hie-bios} reporting include paths specific to the
 container's file\-system to the language server, which in turn breaks all of
@@ -1465,7 +1465,7 @@ specific versions of it already installed as the project quickly adapts to use
 new language extensions, the management of \acrshort{ghc} versions on a
 Unix-like system with a system-wide package manager can be difficult. To ease
 the management of installed versions and enable quick switching between them,
-there is the \texttt{ghcup} tool\cite{ghcup}. \texttt{ghcup} lets the
+there is the \texttt{ghcup} tool~\cite{ghcup}. \texttt{ghcup} lets the
 \acrshort{ghc} developer quickly install and switch between the releases of not
 only \acrshort{ghc} itself, but also Cabal, the Haskell build system and
 dependency manager, and the \acrfull{hls}, an \acrshort{lsp}-compliant language
