@@ -837,18 +837,14 @@ runtime state.
 \begin{table}\noindent
 \begin{minipage}{\textwidth} % support for footnotes within a tabular environment
 	\centering
+	\small
 	\begin{tabularx}{\textwidth}{|| l *{3}{L} >{\raggedright\arraybackslash}X ||}
 		\hline
 		Tool
 		& Source changes
 		& Order of evaluation
 		& Thunks
-		& Memory awareness\footnote{The surveyed programs span several layers
-			of abstraction, with tools such as \nameref{sec:hoed} being completely
-			oblivious to implementation details, \nameref{sec:nothunks}
-			dependent on the runtime representation of values but not directly
-			exposing it to the user, and \nameref{sec:ghc-heap-view} reifying
-			implementation details.}
+		& Memory awareness
 		\\ \hline \hline
 
 		\nameref{sec:hoed}
@@ -876,10 +872,7 @@ runtime state.
 			& None        % memory awareness
 			\\ \hline
 		\nameref{sec:ghc-heap-view}
-			& Unnecessary\footnote{\nameref{sec:ghc-heap-view} does not require
-				any changes to code which allocates the closures it is able to
-				inspect.}
-				% source changes
+			& Unnecessary % source changes
 			& Ignored     % order of evaluation
 			& Reified     % thunks
 			& Full        % memory awareness
