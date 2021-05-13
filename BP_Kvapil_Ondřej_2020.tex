@@ -150,10 +150,10 @@
 	struktur, řídících konstrukcí definovaných uživatelem a možnost vyhnout se
 	nepotřebným výpočtům. Na stranu druhou jsou tyto výhody postiženy daní na
 	výkonu za běhu programu a těžko předvídatelným chováním call-by-need.
-	Nabízí se otázka: \emph{Vyplatí se lenost?} K zodpovězení této otázky
-	musíme porozumět tomu, jak je lenost využívána v praxi. K tomuto účelu jsme
-	vyvinuli nástroj pro dynamickou analýzu použitelný k trasování
-	vyhodnocování funkčních parametrů. Je implementován jako zásuvný modul
+	Nabízí se otázka: \emph{Vyplatí se líná evaluace?} K zodpovězení této
+	otázky musíme porozumět tomu, jak je lenost využívána v praxi. K tomuto
+	účelu jsme vyvinuli nástroj pro dynamickou analýzu použitelný k trasování
+	evaluace funkčních parametrů. Je implementován jako zásuvný modul
 	kompilátoru \acrlong{ghc}.
 }
 \placeForDeclarationOfAuthenticity{Prague}
@@ -243,8 +243,9 @@ Haskell programmer inspect the runtime state of the Haskell heap, force the
 evaluation of thunks known to be forced by the program at a later point anyway,
 and avoid their creation altogether for certain expressions.
 
-We surveyed several debuggers and solutions for the inspection and management
-of thunks. We found no existing tools that would directly capture enough
+We open this chapter with an overview of \acrshort{ghc}. We then follow with a
+survey of several debuggers and solutions for the inspection and management of
+thunks. We found no existing tools that would directly capture enough
 information to be suitable for dynamic tracing and strictness analysis, but two
 came close (\nameref{sec:hat} and \nameref{sec:ghc-heap-view}).
 
@@ -904,14 +905,7 @@ information during the execution of entire programs.
 
 \chapter{Analysis and design} \label{sec:analysis-design}
 
-\section{Overview} \label{sec:analysis-overview}
-\begin{itemize}
-	\item add a proper problem statement
-	\item summarise possible approaches
-	\item detail \acrshort{ghci}
-	\item detail compiler plugins
-	\item build on \texttt{Tickish}
-\end{itemize}
+\todo{opening to this chapter}
 
 \section{Approach} \label{sec:approach}
 
@@ -1225,11 +1219,12 @@ These problems could be overcome by introducing state into the tracing
 framework. It would be enough to mirror the tree-like hierarchy of
 subexpressions in the source code with tokens which would relate them at
 runtime, similarly to how \nameref{sec:htrace} uses a simple mutable counter to
-track nested calls. Unfortunately, the bytecode pipeline and interpreter offer
-no good point of extension for adding said state. Introducing impurities in the
-Core program is difficult and error-prone. The bytecode generator and
-interpreter are both too far removed from the source program and would require
-sizeable changes to accommodate the sort of functionality we would hope for.
+track nested calls. Unfortunately, neither the bytecode pipeline nor the
+interpreter offer a good point of extension for adding said state. Introducing
+impurities in the Core program is difficult and error-prone. The bytecode
+generator and interpreter are both too far removed from the source program and
+would require sizeable changes to accommodate the sort of ad-hoc functionality
+necessary to make tracepoints work well.
 
 The \acrshort{ghci} approach has other downsides as well. The current bytecode
 pipeline lacks support for some language extensions and interpretation is much
@@ -1428,25 +1423,25 @@ developed for dynamic tracing and present the results of the implementation.
 While obtaining and compiling a local copy of \acrshort{ghc} source code is
 unnecessary for compiler plugin development, a programmer inexperienced with
 the internals of the project may find it helpful to occasionally peek under the
-hood of its \acrshortpl{api}. Obtaining a working copy is also a prerequisite
-for forking\todo{term?} the project -- we did so when evaluating the
+hood of its \acrshortpl{api}. Obtaining a working copy is naturally a
+prerequisite for modifying the project -- we did so when evaluating the
 \acrshort{ghci} approach.
 
 The \acrshort{ghc} codebase is a large and complicated collection of source
-files written primarily in Haskell and C~\cite{arch-ghc}. The ever-evolving
-project is supported by a custom build system called Hadrian~\cite{hadrian},
-itself written in Haskell, introduced to replace \acrshort{gnu} Make.
-Additionally, the build tool of the programmer's choice can be combined with a
-Docker or Nix -assisted set-up, simplifying the installation of other
-dependencies required for the build process. We do not recommend using Make:
-Hadrian was developed to address many issues with Make, including its excessive
-complexity and poor performance.  Tools for simplifying library management
-(particularly Nix and Docker) are compelling choices for projects with larger
-teams. However, we found it significantly easier to set up a ``native''
-development environment. Both Nix and Docker suffer from substantial disk usage
-overheads. Our experience in developing a Docker container for \acrshort{ghc}
-8.10.2 indicates that large portions of the native set-up have to be replicated
-in the container.
+files written primarily in Haskell and C~\cite{arch-ghc}. The project is
+supported by a custom build system called Hadrian~\cite{hadrian}, itself
+written in Haskell, introduced to replace architecture based on \acrshort{gnu}
+Make. As of \acrshort{ghc} 8.10.2, either system can build the project. We do
+not recommend using Make: Hadrian was developed to address many issues with
+Make, including its excessive complexity and poor performance. Additionally,
+the build tool of the programmer's choice can be combined with a Docker or Nix
+-assisted set-up, simplifying the installation of other dependencies required
+for the build process. Tools for simplifying library management are compelling
+choices for projects with larger teams. However, we found it significantly
+easier to set up a ``native'' development environment. Both Nix and Docker
+suffer from substantial disk usage overhead. Our experience in developing a
+Docker container for \acrshort{ghc} 8.10.2 indicates that large portions of the
+native set-up have to be replicated in the container.
 
 For example, correctly configuring \acrshort{hls} to load the \acrshort{ghc}
 source code is quite an involved task, eased by the \texttt{hie-bios}
@@ -1454,28 +1449,29 @@ project~\cite{gh-hie-bios} which ships with Hadrian (as a part of the
 \acrshort{ghc} source tree). However, compiling \acrshort{ghc} inside the
 container results in \texttt{hie-bios} reporting include paths specific to the
 container's file\-system to the language server, which in turn breaks all of
-its functionality. One possible solution is installing the \acrshort{hls}
-inside the Docker container instead and letting the code editor of choice talk
-to the containerised process. In comparison, a native set-up with
-\texttt{ghcup} is far easier and comes with fewer surprises along the way,
-which is why we would recommend it for a project similar in scale to ours.
+its functionality. One possible solution is installing \acrshort{hls} inside
+the Docker container instead and letting the code editor of choice talk to the
+containerised process. In comparison, a native set-up with \texttt{ghcup} is
+far easier and comes with fewer surprises along the way, which is why we would
+recommend it for a project similar in scale to ours.
 
 \subsection*{Build process}
 The first step to working on the project after obtaining the source code is
-setting up the build system. Since specific releases of \acrshort{ghc} require
-specific versions of it already installed as the project quickly adapts to use
-new language extensions, the management of \acrshort{ghc} versions on a
-Unix-like system with a system-wide package manager can be difficult. To ease
-the management of installed versions and enable quick switching between them,
-there is the \texttt{ghcup} tool~\cite{ghcup}. \texttt{ghcup} lets the
+setting up the build system. \acrshort{ghc} is a self-hosting compiler, meaning
+it can and does compile its own source code. Since the project quickly adapts
+to use new language extensions, specific releases of \acrshort{ghc} require
+specific versions of it already installed. As a result, the management of
+\acrshort{ghc} versions on a Unix-like system with a system-wide package
+manager can be difficult. To ease this task and enable quick switching between
+them, there is the \texttt{ghcup} tool~\cite{ghcup}. \texttt{ghcup} lets the
 \acrshort{ghc} developer quickly install and switch between the releases of not
 only \acrshort{ghc} itself, but also Cabal, the Haskell build system and
 dependency manager, and the \acrfull{hls}, an \acrshort{lsp}-compliant language
 server providing Haskell-specific editor integration features.
 
-The build system bootstraps the self-hosting compiler in several steps. The
-\acrshort{ghc} provided by the system is referred to as the \textbf{stage 0}
-compiler \todo{fix the formatting of stages}. \acrshort{ghc} comes with build
+In our set-up, we choose to use Hadrian. The build system bootstraps the
+compiler in several steps. The \acrshort{ghc} provided by the system is
+referred to as the \textbf{stage 0} compiler. \acrshort{ghc} comes with build
 scripts which use the \textbf{stage 0} compiler to build first the Hadrian
 build system. Once Hadrian has been built, the user invokes it to build the
 \textbf{stage 1} compiler, which is a \acrshort{ghc} linked against the
@@ -1488,24 +1484,53 @@ follow-up step, where the \textbf{stage 2} compiler builds a \textbf{stage 3}
 compiler, which is useful for profiling \acrshort{ghc} while building
 \acrshort{ghc}.
 
-The Hadrian build system offers many configuration options defined as a Haskell
-module called \hsModule{UserSettings}. Hadrian comes with a template settings
-file which explains the various options the user can tweak. The main
-abstraction is a \textit{build flavour}, a collection of build settings which
-fully define a \acrshort{ghc} build. For debugging the \acrshort{rts}, it is
-important to know about a lower-level abstraction called a \textit{build way}.
-Libraries and the \acrshort{rts} can be built in multiple \textit{ways}, which
-configure far-reaching \acrshort{ghc}-specific features, such as profiling and
-debugging symbols. The \acrshort{rts} can be built in threaded and non-threaded
-ways, the latter variant of \acrshort{rts} runs in a single operating system
-thread.
+Hadrian offers many configuration options defined as a Haskell module called
+\hsModule{UserSettings} and comes with a template settings file which explains
+the various options the user can tweak. The main abstraction is a \textit{build
+flavour}, a collection of build settings which fully define a \acrshort{ghc}
+build. For debugging the \acrshort{rts}, it is important to know about a
+lower-level abstraction called a \textit{build way}. Libraries and the
+\acrshort{rts} can be built in multiple \textit{ways}, which configure
+far-reaching \acrshort{ghc}-specific features, such as profiling and debugging
+symbols. The \acrshort{rts} can be built in threaded and non-threaded ways, the
+latter variant of \acrshort{rts} runs in a single operating system thread. When
+exploring \acrshort{ghci}, we developed a custom build flavour which built the
+\acrshort{rts} with the debugging variant of the threaded way. There are still
+some issues with the Hadrian \acrshort{rts} build process, which means the
+configuration has to include more ways than necessary\footnote{
+	\url{https://gitlab.haskell.org/ghc/ghc/-/issues/17814}
+}.
 
 After the initial build, the \textbf{stage 1} compiler can be \textit{frozen}
-by passing a flag to the build system on subsequent invocations. This prevents
-rebuilding the \textbf{stage 1} compiler every time a source file changes, which
-speeds up the edit-compile-run cycle tremendously.
+by passing a command-line option to the build system on subsequent invocations.
+This prevents rebuilding the \textbf{stage 1} compiler every time a source file
+changes, which speeds up the edit-compile-run cycle tremendously.
 
-\todo{\ldots}
+\subsection*{Developer experience}
+The complexity of the \acrshort{ghc} codebase confuses many an editor plugin,
+which makes code navigation and exploration difficult. Thankfully, the
+\acrshort{hls} project continues to accumulate useful features and improve in
+stability. Over the course of our work, \acrshort{hls} went through releases
+0.9.0, 1.0.0, and 1.1.0. The latter can reliably search for symbol references
+in most of the \acrshort{ghc} source files. This feature was introduced in
+release 1.0.0, but the indexing process got stuck in the \acrshort{ghc}
+project. Given the daunting scale of the compiler, similar tooling is
+tremendously helpful to an inexperienced developer. If the language server
+continues to mature, it could play an important role in attracting more
+developers to \acrshort{ghc} or even to Haskell in general.
+
+In stark contrast to the near out-of-the-box experience of \acrshort{hls}, the
+Cabal package system is very user-unfriendly software. It consists of the Cabal
+library and the \hackage{cabal-install} package, which provides the
+\texttt{cabal} command-line tool. The project has outgrown its intended use
+cases, as evidenced by the sorry state of the command-line interface. For
+example, the interface can install but not uninstall packages. The commands
+that \texttt{cabal} implements are split into variants with \texttt{v1-},
+\texttt{v2-}, and \texttt{new-} prefixes. The best solution for certain
+use-cases (such as installing multiple versions of a local package for a
+specific package database) seems to be deleting the database and building the
+package again from scratch. We ran into this problem when installing our
+compiler plugin into the package database of a local fork of the compiler.
 
 \section{Dynamic tracing with plugins}
 With a Haskell development environment ready, we have all we need to dive into
@@ -1559,6 +1584,11 @@ sides of functions are wrapped in \hsCode{let} expressions which introduce
 	\label{lst:qsort-perfect}
 \end{listing}
 
+The call number variables let us group the trace records by the call they
+originated in. Any references to function arguments first pass through
+\hsIdent{traceArg}, opening the opportunity to inspect the underlying runtime
+structure before it is actually used in the program.
+
 \subsection*{Anatomy of a plugin}
 Our source plugin consists of four modules.
 \begin{itemize}
@@ -1608,11 +1638,11 @@ Since the \acrshort{ghc} \acrshort{api} abstracts over compiler state using
 (among other types) the \hsType{TcM} monad, the generic transformation
 involving any non-trivial compiler computations needs to be monadic as well.
 This transformation is implemented by the \hsIdent{trans} function (shown in
-fig. \ref{lst:hs-trans}), which additionally carries a context from the roots
-of the top-level definitions down to their leaves. We combine the stateful
-traversal with the typechecking monad by way of the \hackage{mtl} package,
-itself inspired by \cite{higher-order-polymorphism}, using the \hsType{StateT}
-monad transformer.
+Listing \ref{lst:hs-trans}), which additionally carries a context from the
+roots of the top-level definitions down to their leaves. We combine the
+stateful traversal with the typechecking monad by way of the \hackage{mtl}
+package, itself inspired by \cite{higher-order-polymorphism}, using the
+\hsType{StateT} monad transformer.
 
 \begin{listing}[h]
 	\centering
