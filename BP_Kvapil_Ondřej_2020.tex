@@ -132,28 +132,30 @@
 \authorWithDegrees{Ondřej Kvapil} %author's name with academic degrees
 \supervisor{Ing. Filip Křikava, Ph.D.}
 \acknowledgements{THANKS (remove entirely in case you do not wish to thank anyone)}
-\abstractEN{Lazy evaluation is a potentially powerful implementation strategy
-	for non-strict languages, freeing the programmer to focus on what a program
-	means rather than on how it is computed. Laziness naturally accommodates
-	user-defined control flow and evaluates only the required subset of a given
-	program in a demand-driven manner. However, delayed evaluation makes
-	complexity analysis challenging and can lead to hard-to-predict memory
-	behaviour. To better understand the trade-offs laziness offers and how it
-	is used in practical scenarios, we design a dynamic tracing plugin for
-	the \acrlong{ghc}, implement a proof of concept, and demonstrate its
-	ability to record crucial information about the use of laziness in simple
-	Haskell programs.}
-\abstractCS{Líné vyhodnocování je potenciálně mocná implementační strategie pro
-	non-strict programovací jazyky, která umožňuje programátorům soustředit se
-	na to, co program znamená, aniž by byli rušeni způsobem jeho vyhodnocení.
-	Lenost přináší možnost přirozeně vyjádřit uživatelem definované řídící
-	konstrukce a vede k vyhodnocení jen potřebné části programu. Odklad
-	vyhodnocování ale komplikuje analýzu složitosti a může vést k těžko
-	předvídatelnému paměťovému chování. Pro lepší pochopení kompromisů
-	spojených s leností a jejího využití v praktických situacích jsme navrhli
-	zásuvný modul pro dynamické trasování do kompilátoru \acrlong{ghc},
-	na\-implementovali prototyp a ukázali jeho schopnost zachytit klíčové informace
-	o využití lenosti v jednoduchých Haskell programech.}
+\abstractEN{
+	Haskell is one of the most well-known instances of a programming language
+	that uses non-strict semantics. On the one hand, this brings the
+	convenience of infinite data structures, user-defined control flow, and the
+	possibility to avoid unnecessary computation. On the other hand, these
+	benefits are hampered by the runtime overhead and hard-to-predict the
+	behaviour of call-by-need. This begs the question: \emph{Is laziness worth
+	it?} To answer this question, we need to understand how laziness is used in
+	the wild. To this end, we develop a tool for dynamic analysis used to trace
+	the evaluation of function parameters. It is implemented as a compiler
+	plugin for the \acrlong{ghc}.
+}
+\abstractCS{
+	Haskell je jeden z nejznámějších případů jazyka s non-strict sémantikou.
+	Na jednu stranu přináší tato sémantika pohodlí nekonečných datových
+	struktur, řídících konstrukcí definovaných uživatelem a možnost vyhnout se
+	nepotřebným výpočtům. Na stranu druhou jsou tyto výhody postiženy daní na
+	výkonu za běhu programu a těžko předvídatelným chováním call-by-need.
+	Nabízí se otázka: \emph{Vyplatí se lenost?} K zodpovězení této otázky
+	musíme porozumět tomu, jak je lenost využívána v praxi. K tomuto účelu jsme
+	vyvinuli nástroj pro dynamickou analýzu použitelný k trasování
+	vyhodnocování funkčních parametrů. Je implementován jako zásuvný modul
+	kompilátoru \acrlong{ghc}.
+}
 \placeForDeclarationOfAuthenticity{Prague}
 \keywordsCS{Haskell, dynamické trasování, líné vyhodnocování, zásuvné moduly
 kompilátorů, generické programování}
@@ -1830,8 +1832,9 @@ The trace can then refer to functions and arguments with integers instead.
 
 It remains to be seen whether the choice of rewriting after the typechecking
 phase supports the future extensions. It may be easier to perform some
-transformations without the annotations introduced by the typechecker right
-after the renaming phase, or even right after parsing.
+transformations without the annotations introduced by the typechecker and
+trigger rewriting just after the renaming phase, or even right after parsing.
+
 
 \setsecnumdepth{part}
 \chapter{Conclusion}
