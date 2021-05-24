@@ -399,7 +399,7 @@ sp\^ osobom, ktor\'y nezni\v zuje hodnotu Diela (vr\'atane komer\v cn\'eho vyu\v
 
  
 
-                \noindent\today
+                \noindent May 13, 2021
 
         \end{titlingpage}
 
@@ -433,7 +433,7 @@ sp\^ osobom, ktor\'y nezni\v zuje hodnotu Diela (vr\'atane komer\v cn\'eho vyu\v
 
 		\noindent
 			\if@cityfordeclarationdefined
-				\if\@lang1{}\else\if\@lang2{}\else{In }\fi\fi\thecityfordeclaration{} \if\@lang1{dne}\else\if\@lang2{}\else{on}\fi\fi~\today \hfill \dotfill
+				\if\@lang1{}\else\if\@lang2{}\else{In }\fi\fi\thecityfordeclaration{} \if\@lang1{dne}\else\if\@lang2{}\else{on}\fi\fi~May 13, 2021 \hfill \dotfill
 			\else
 				\ClassError{FITthesis}{M{\' i}sto prohl{\' a}{\v s}en{\' i} nebylo zad{\' a}no}{Nastavte m{\' i}sto, kde bylo podeps{\' a}no prohl{\' a}{\v s}en{\' i}, v{\v c}etn{\v e} p{\v r}edlo{\v z}ky (nap{\v r}. V~Praze) pomoc{\' i} p{\v r}{\' i}kazu \placeForDeclaration.}
 			\fi
@@ -488,7 +488,7 @@ sp\^ osobom, ktor\'y nezni\v zuje hodnotu Diela (vr\'atane komer\v cn\'eho vyu\v
 		\ClassError{FITthesis}{Czech keywords unspecified}{Specify the keywords in Czech of your thesis using \keywordsCS command.}
 	\fi
 
-	\clearpage
+	\cleardoublepage
 
 	\if@abstractendefined
 		\chapterstyletitle{Abstract}\theabstracten
@@ -508,14 +508,16 @@ sp\^ osobom, ktor\'y nezni\v zuje hodnotu Diela (vr\'atane komer\v cn\'eho vyu\v
 \renewcommand{\counterwithin}{\@ifstar{\@csinstar}{\@csin}}
 
 	\thispagestyle{empty}
+	\null\cleardoublepage
 	\includepdf[pages={1}]{./resources/assignment.pdf}
+	\clearpage
 
 	\frontmatter
 	\pagestyle{plain}
 	\cleardoublepage
 % 	\setcounter{page}{3}
 	\titlepage
-	
+
 	\setcounter{page}{3}
 	\acknowledgementspage
 
